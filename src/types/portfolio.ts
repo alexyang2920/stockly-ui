@@ -37,6 +37,11 @@ export type Holding = {
   currency: string
   firstPurchasedAt: string
   lastTransactionAt: string
+  marketPrice: number | null
+  marketValue: number | null
+  unrealizedGain: number | null
+  unrealizedGainPercent: number | null
+  quoteDate: string | null
 }
 
 export type Page<T> = {

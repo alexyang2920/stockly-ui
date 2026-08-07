@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { apiErrorMessage } from '../api/client'
-import { getFinancials, getInstrument, getRatios, type FinancialPeriod, type RatioBasis } from '../api/instruments'
+import { getDividends, getFinancials, getInstrument, getQuote, getRatios, getSplits, syncDividends, syncQuote, syncSplits, type FinancialPeriod, type RatioBasis } from '../api/instruments'
 import { addWatchlistInstrument, createWatchlist, getWatchlists, removeWatchlistInstrument } from '../api/watchlists'
 import InstrumentMark from '../components/InstrumentMark'
 import type { AuthResponse } from '../types/auth'
-import type { FinancialFact, FinancialRatios, Instrument, Watchlist } from '../types/instrument'
+import type { DividendEvent, FinancialFact, FinancialRatios, Instrument, InstrumentQuote, StockSplitEvent, Watchlist } from '../types/instrument'
 
 type Period = FinancialPeriod
 type Basis = RatioBasis
@@ -24,7 +24,7 @@ const metricLabels: Record<string, string> = {
 }
 
 function humanize(value: string) {
-  return value.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (character) => character.toUpperCase())
+  return value.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (character) => character.toUpperCase())
 }
 
 function formatFact(value: number, unit: string) {
@@ -58,6 +58,12 @@ function InstrumentPage({ symbol, auth, onBack, onNeedAuth, onWatchChange, watch
   const [watchlistsLoading, setWatchlistsLoading] = useState(Boolean(auth))
   const [watchSaving, setWatchSaving] = useState(false)
   const [watchError, setWatchError] = useState('')
+  const [quote, setQuote] = useState<InstrumentQuote | null>(null)
+  const [dividends, setDividends] = useState<DividendEvent[]>([])
+  const [splits, setSplits] = useState<StockSplitEvent[]>([])
+  const [marketLoading, setMarketLoading] = useState(true)
+  const [marketRefreshing, setMarketRefreshing] = useState(false)
+  const [marketMessage, setMarketMessage] = useState('')
 
   useEffect(() => {
     const controller = new AbortController()
@@ -115,6 +121,18 @@ function InstrumentPage({ symbol, auth, onBack, onNeedAuth, onWatchChange, watch
       .finally(() => { if (!controller.signal.aborted) setWatchlistsLoading(false) })
     return () => controller.abort()
   }, [auth, symbol])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    Promise.allSettled([getQuote(symbol, controller.signal), getDividends(symbol, controller.signal), getSplits(symbol, controller.signal)])
+      .then(([quoteResult, dividendResult, splitResult]) => {
+        if (quoteResult.status === 'fulfilled') setQuote(quoteResult.value)
+        if (dividendResult.status === 'fulfilled') setDividends(dividendResult.value)
+        if (splitResult.status === 'fulfilled') setSplits(splitResult.value)
+      })
+      .finally(() => { if (!controller.signal.aborted) setMarketLoading(false) })
+    return () => controller.abort()
+  }, [symbol])
 
   const financialTable = useMemo(() => {
     const periodMap = new Map<string, FinancialPeriodColumn>()
@@ -192,6 +210,18 @@ function InstrumentPage({ symbol, auth, onBack, onNeedAuth, onWatchChange, watch
     }
   }
 
+  const refreshMarketData = async () => {
+    if (!auth) { onNeedAuth(); return }
+    setMarketRefreshing(true); setMarketMessage('')
+    const results = await Promise.allSettled([syncQuote(auth, symbol), syncDividends(auth, symbol), syncSplits(auth, symbol)])
+    if (results[0].status === 'fulfilled') setQuote(results[0].value)
+    if (results[1].status === 'fulfilled') setDividends(results[1].value)
+    if (results[2].status === 'fulfilled') setSplits(results[2].value)
+    const failed = results.find((result) => result.status === 'rejected')
+    if (failed?.status === 'rejected') setMarketMessage(apiErrorMessage(failed.reason, 'Unable to refresh market data.'))
+    setMarketRefreshing(false)
+  }
+
   if (loading) return <main className="mx-auto max-w-[1200px] px-5 py-12 lg:px-8"><div className="h-52 animate-pulse rounded-[24px] bg-white" /></main>
   if (error || !instrument) return <main className="mx-auto max-w-[900px] px-5 py-16 text-center"><div className="rounded-[24px] border border-rose-200 bg-white p-10"><h1 className="text-2xl font-semibold">Instrument unavailable</h1><p className="mt-2 text-[#78837c]">{error || `We could not find ${symbol}.`}</p><button onClick={onBack} className="mt-6 rounded-xl bg-[#173c2c] px-5 py-3 text-sm font-bold text-white">Back to search</button></div></main>
 
@@ -208,6 +238,22 @@ function InstrumentPage({ symbol, auth, onBack, onNeedAuth, onWatchChange, watch
         </div>
       </div>
       <div className="mt-7 grid gap-3 border-t border-[#e7ebe7] pt-6 sm:grid-cols-3"><Detail label="Exchange" value={instrument.exchange} /><Detail label="Category" value={instrument.category || 'Not classified'} /><Detail label="SEC CIK" value={instrument.cik || 'Not available'} /></div>
+    </section>
+
+    <section className="mt-6 overflow-hidden rounded-[22px] border border-[#dfe4df] bg-white">
+      <div className="flex flex-col justify-between gap-4 border-b border-[#e5e9e5] p-5 sm:flex-row sm:items-center md:px-7"><div><h2 className="text-xl font-semibold tracking-[-.025em]">Daily quote</h2><p className="mt-1 text-sm text-[#7a857e]">Latest available end-of-day market data</p></div><button onClick={refreshMarketData} disabled={marketRefreshing} className="self-start rounded-xl border border-[#dce2dd] px-4 py-2.5 text-xs font-bold hover:bg-[#f3f6f3] disabled:opacity-60">{marketRefreshing ? 'Refreshing…' : 'Refresh market data'}</button></div>
+      {marketLoading ? <div className="h-32 animate-pulse bg-[#f7f9f7]" /> : quote ? <div className="grid gap-px bg-[#e7ebe7] sm:grid-cols-3 lg:grid-cols-6"><QuoteDetail label="Close" value={formatMoney(quote.price, quote.currency)} emphasis /><QuoteDetail label="Open" value={formatOptionalMoney(quote.open, quote.currency)} /><QuoteDetail label="High" value={formatOptionalMoney(quote.high, quote.currency)} /><QuoteDetail label="Low" value={formatOptionalMoney(quote.low, quote.currency)} /><QuoteDetail label="Volume" value={quote.volume == null ? '—' : new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 2 }).format(quote.volume)} /><QuoteDetail label="Market date" value={quote.marketDate} /></div> : <div className="px-6 py-9 text-center"><p className="font-semibold">No quote has been synchronized yet</p><p className="mt-1 text-sm text-[#7a857e]">Sign in and refresh to retrieve the latest daily quote.</p></div>}
+      {marketMessage && <p role="alert" className="border-t border-rose-200 bg-rose-50 px-6 py-3 text-sm text-rose-700">{marketMessage}</p>}
+    </section>
+
+    <section className="mt-6 overflow-hidden rounded-[22px] border border-[#dfe4df] bg-white">
+      <div className="border-b border-[#e5e9e5] p-5 md:px-7"><h2 className="text-xl font-semibold tracking-[-.025em]">Dividend history</h2><p className="mt-1 text-sm text-[#7a857e]">Declared cash distributions, newest ex-dividend date first</p></div>
+      {marketLoading ? <div className="h-40 animate-pulse bg-[#f7f9f7]" /> : dividends.length ? <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left"><thead className="bg-[#fafbf9] text-[10px] font-bold uppercase tracking-[.12em] text-[#849088]"><tr><th className="px-6 py-3">Ex-dividend</th><th className="px-4 py-3">Pay date</th><th className="px-4 py-3">Type</th><th className="px-4 py-3">Frequency</th><th className="px-4 py-3 text-right">Reported</th><th className="px-6 py-3 text-right">Split-adjusted</th></tr></thead><tbody>{dividends.map((event) => <tr key={`${event.exDividendDate}-${event.cashAmount}`} className="border-t border-[#ecefec] hover:bg-[#fafcf9] dark:hover:bg-[#1a2520]"><td className="px-6 py-4 text-sm font-semibold">{event.exDividendDate}</td><td className="px-4 py-4 text-sm text-[#6f7b74]">{event.payDate ?? '—'}</td><td className="px-4 py-4 text-sm">{event.dividendType ? humanize(event.dividendType.toLowerCase()) : 'Cash'}</td><td className="px-4 py-4 text-sm text-[#6f7b74]">{frequencyLabel(event.frequency)}</td><td className="px-4 py-4 text-right text-sm tabular-nums text-[#6f7b74]">{formatMoney(event.cashAmount, event.currency)}</td><td className="px-6 py-4 text-right text-sm font-bold tabular-nums">{formatMoney(event.splitAdjustedCashAmount ?? event.cashAmount, event.currency)}</td></tr>)}</tbody></table></div> : <div className="px-6 py-10 text-center"><p className="font-semibold">No dividend events found</p><p className="mt-1 text-sm text-[#7a857e]">This instrument may not pay a dividend, or its history has not been synchronized.</p></div>}
+    </section>
+
+    <section className="mt-6 overflow-hidden rounded-[22px] border border-[#dfe4df] bg-white">
+      <div className="border-b border-[#e5e9e5] p-5 md:px-7"><h2 className="text-xl font-semibold tracking-[-.025em]">Split history</h2><p className="mt-1 text-sm text-[#7a857e]">Corporate actions used to adjust portfolio quantities and average cost</p></div>
+      {marketLoading ? <div className="h-32 animate-pulse bg-[#f7f9f7]" /> : splits.length ? <div className="divide-y divide-[#ecefec]">{splits.map((split) => <div key={split.id} className="flex items-center justify-between gap-4 px-6 py-4"><div><p className="text-sm font-semibold">{humanize(split.adjustmentType)}</p><p className="mt-1 text-xs text-[#7a857e]">Effective {split.executionDate}</p></div><span className="rounded-xl bg-[#edf3ee] px-3 py-2 text-sm font-bold tabular-nums">{split.splitTo}:{split.splitFrom}</span></div>)}</div> : <div className="px-6 py-9 text-center text-sm text-[#7a857e]">No stock splits found.</div>}
     </section>
 
     {instrument.instrumentType === 'ETF' ? <section className="mt-6 rounded-[22px] border border-[#dce2dd] bg-[#eef4ef] p-7"><h2 className="text-lg font-semibold">ETF analytics are coming next</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-[#69756d]">SEC company financial statements do not apply to ETFs. Fund holdings, expense ratio, AUM, and NAV require a separate fund-data provider.</p></section> : <>
@@ -228,6 +274,11 @@ function InstrumentPage({ symbol, auth, onBack, onNeedAuth, onWatchChange, watch
 function Detail({ label, value }: { label: string, value: string }) {
   return <div className="rounded-xl bg-[#f7f9f6] px-4 py-3"><p className="text-[10px] font-bold uppercase tracking-[.12em] text-[#87918b]">{label}</p><p className="mt-1 text-sm font-semibold">{value}</p></div>
 }
+
+function formatMoney(value: number, currency: string) { return new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 4 }).format(value) }
+function formatOptionalMoney(value: number | null, currency: string) { return value == null ? '—' : formatMoney(value, currency) }
+function frequencyLabel(value: number | null) { return value === 12 ? 'Monthly' : value === 4 ? 'Quarterly' : value === 2 ? 'Semiannual' : value === 1 ? 'Annual' : value ? `${value}× yearly` : '—' }
+function QuoteDetail({ label, value, emphasis = false }: { label: string, value: string, emphasis?: boolean }) { return <div className="bg-white px-5 py-5"><p className="text-[10px] font-bold uppercase tracking-[.12em] text-[#87918b]">{label}</p><p className={`mt-1.5 font-semibold tabular-nums ${emphasis ? 'text-2xl tracking-[-.03em]' : 'text-sm'}`}>{value}</p></div> }
 
 function Segmented({ values, active, onChange }: { values: string[], active: string, onChange: (value: string) => void }) {
   return <div className="flex rounded-xl bg-[#eef1ee] p-1">{values.map((value) => <button key={value} onClick={() => onChange(value)} className={`rounded-lg px-3 py-2 text-[11px] font-bold transition ${active === value ? 'bg-white text-[#173c2c] shadow-sm' : 'text-[#748078]'}`}>{value}</button>)}</div>
