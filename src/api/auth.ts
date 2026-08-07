@@ -8,3 +8,7 @@ export function login(request: LoginRequest) {
 export function register(request: RegisterRequest) {
   return apiRequest<AuthResponse>('/auth/register', { method: 'POST', body: request })
 }
+
+export function logout() {
+  return apiRequest<void>('/auth/logout', { method: 'POST' })
+}

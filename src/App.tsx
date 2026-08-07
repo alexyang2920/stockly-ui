@@ -4,6 +4,8 @@ import InstrumentMark from './components/InstrumentMark'
 import PortfolioNav from './components/PortfolioNav'
 import UserMenu from './components/UserMenu'
 import { getUserPreferences, updateUserPreferences } from './api/users'
+import { logout } from './api/auth'
+import { configureAuthLifecycle } from './api/client'
 import WatchlistTable from './components/WatchlistTable'
 import InstrumentPage from './pages/InstrumentPage'
 import PortfolioPage from './pages/PortfolioPage'
@@ -129,6 +131,24 @@ function App() {
   }, [auth])
 
   useEffect(() => {
+    configureAuthLifecycle({
+      onRefreshed: (response) => {
+        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(response))
+        setAuth(response)
+      },
+      onExpired: () => {
+        localStorage.removeItem(AUTH_STORAGE_KEY)
+        setAuth(null)
+        setWatching(new Set())
+        setPreferredPortfolioId(undefined)
+        setToast('Your session expired. Please sign in again.')
+        setShowModal(true)
+      },
+    })
+    return () => configureAuthLifecycle(null)
+  }, [])
+
+  useEffect(() => {
     const onPopState = () => setRoute(routeFromLocation())
     window.addEventListener('popstate', onPopState)
     return () => window.removeEventListener('popstate', onPopState)
@@ -144,6 +164,7 @@ function App() {
   }
 
   const signOut = () => {
+    void logout().catch(() => undefined)
     localStorage.removeItem(AUTH_STORAGE_KEY)
     setAuth(null)
     setWatching(new Set())
