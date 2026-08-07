@@ -9,6 +9,7 @@ export type MarketDataDatasetStatus = {
   pagesProcessed: number
   resumable: boolean
   lastError: string | null
+  lastHttpStatus: number | null
 }
 
 export type BulkMarketDataSyncInput = {
@@ -17,6 +18,7 @@ export type BulkMarketDataSyncInput = {
   splits: boolean
   marketDate?: string
   corporateActionsFrom?: string
+  restartDividends?: boolean
 }
 
 export type BulkMarketDataSyncResult = {
