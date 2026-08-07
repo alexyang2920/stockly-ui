@@ -30,6 +30,9 @@ export type PortfolioTransaction = {
 export type Holding = {
   symbol: string
   name: string
+  sector: string | null
+  category: string
+  instrumentType: string
   quantity: number
   averageCost: number
   costBasis: number
