@@ -44,6 +44,23 @@ export type Holding = {
   quoteDate: string | null
 }
 
+export type DividendCalendarEvent = {
+  symbol: string
+  name: string
+  calendarDate: string
+  dateType: 'PAY_DATE' | 'EX_DIVIDEND'
+  declarationDate: string | null
+  exDividendDate: string
+  recordDate: string | null
+  payDate: string | null
+  quantity: number
+  amountPerShare: number
+  projectedAmount: number
+  currency: string
+  frequency: number | null
+  dividendType: string | null
+}
+
 export type Page<T> = {
   content: T[]
   totalElements: number
