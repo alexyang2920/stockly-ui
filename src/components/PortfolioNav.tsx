@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { apiErrorMessage } from '../api/client'
 import { createPortfolio, deletePortfolio, getPortfolios, updatePortfolio } from '../api/portfolios'
+import { getUserPreferences } from '../api/users'
 import type { AuthResponse } from '../types/auth'
 import type { Portfolio } from '../types/portfolio'
 
@@ -18,7 +19,9 @@ function PortfolioNav({ auth, selectedId, onSelect, mobile = false }: PortfolioN
   const [managingPortfolio, setManagingPortfolio] = useState<Portfolio | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [loading, setLoading] = useState(true)
-  const activePortfolio = portfolios.find((portfolio) => portfolio.id === selectedId) ?? portfolios[0]
+  const [accountSelectedId, setAccountSelectedId] = useState<string | undefined>()
+  const effectiveSelectedId = selectedId ?? accountSelectedId
+  const activePortfolio = portfolios.find((portfolio) => portfolio.id === effectiveSelectedId) ?? portfolios[0]
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -29,6 +32,13 @@ function PortfolioNav({ auth, selectedId, onSelect, mobile = false }: PortfolioN
       .finally(() => { if (!controller.signal.aborted) setLoading(false) })
     return () => controller.abort()
   }, [auth])
+
+  useEffect(() => {
+    if (selectedId) return
+    const controller = new AbortController()
+    getUserPreferences(auth, controller.signal).then((preferences) => setAccountSelectedId(preferences.selectedPortfolioId ?? undefined)).catch(() => undefined)
+    return () => controller.abort()
+  }, [auth, selectedId])
 
   useEffect(() => {
     if (!menuOpen) return

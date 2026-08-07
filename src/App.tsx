@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from
 import AuthModal from './components/AuthModal'
 import InstrumentMark from './components/InstrumentMark'
 import PortfolioNav from './components/PortfolioNav'
+import UserMenu from './components/UserMenu'
+import { getUserPreferences, updateUserPreferences } from './api/users'
 import WatchlistTable from './components/WatchlistTable'
 import InstrumentPage from './pages/InstrumentPage'
 import PortfolioPage from './pages/PortfolioPage'
@@ -94,6 +96,7 @@ function StockMark({ symbol, small = false }: { symbol: string, small?: boolean 
 
 function App() {
   const [darkMode, setDarkMode] = useState(() => document.documentElement.classList.contains('dark'))
+  const [preferredPortfolioId, setPreferredPortfolioId] = useState<string | undefined>()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [watching, setWatching] = useState(() => new Set<string>())
   const [showModal, setShowModal] = useState(false)
@@ -114,6 +117,16 @@ function App() {
   }, [darkMode])
 
   useEffect(() => {
+    if (!auth) return
+    const controller = new AbortController()
+    getUserPreferences(auth, controller.signal).then((preferences) => {
+      setDarkMode(preferences.darkMode)
+      setPreferredPortfolioId(preferences.selectedPortfolioId ?? undefined)
+    }).catch(() => { /* Keep local preferences when the server is unavailable. */ })
+    return () => controller.abort()
+  }, [auth])
+
+  useEffect(() => {
     const onPopState = () => setRoute(routeFromLocation())
     window.addEventListener('popstate', onPopState)
     return () => window.removeEventListener('popstate', onPopState)
@@ -132,6 +145,7 @@ function App() {
     localStorage.removeItem(AUTH_STORAGE_KEY)
     setAuth(null)
     setWatching(new Set())
+    setPreferredPortfolioId(undefined)
     setToast('You have been signed out')
   }
 
@@ -152,14 +166,23 @@ function App() {
   const selectNav = (item: string) => {
     if (item === 'Overview') navigate({ view: 'home' })
     if (item === 'Holdings' || item === 'Transactions') {
-      if (auth) navigate({ view: 'portfolio', section: item.toLowerCase() as 'holdings' | 'transactions', portfolioId: route.view === 'portfolio' ? route.portfolioId : undefined, addTransaction: false })
+      if (auth) navigate({ view: 'portfolio', section: item.toLowerCase() as 'holdings' | 'transactions', portfolioId: route.view === 'portfolio' ? route.portfolioId ?? preferredPortfolioId : preferredPortfolioId, addTransaction: false })
       else setShowModal(true)
     }
   }
 
   const selectPortfolio = (portfolioId: string) => {
+    const nextPortfolioId = portfolioId || undefined
+    setPreferredPortfolioId(nextPortfolioId)
+    if (auth) void updateUserPreferences(auth, { darkMode, selectedPortfolioId: nextPortfolioId ?? null }).catch(() => undefined)
     const section = route.view === 'portfolio' ? route.section : 'holdings'
-    navigate({ view: 'portfolio', section, portfolioId, addTransaction: false })
+    navigate({ view: 'portfolio', section, portfolioId: nextPortfolioId, addTransaction: false })
+  }
+
+  const toggleTheme = () => {
+    const nextDarkMode = !darkMode
+    setDarkMode(nextDarkMode)
+    if (auth) void updateUserPreferences(auth, { darkMode: nextDarkMode, selectedPortfolioId: preferredPortfolioId ?? null }).catch(() => undefined)
   }
 
   return (
@@ -168,26 +191,30 @@ function App() {
         <div className="mx-auto flex h-[72px] max-w-[1480px] items-center gap-8 px-5 lg:px-8">
           <button className="flex items-center gap-2.5" onClick={() => navigate({ view: 'home' })} aria-label="Stockly home">
             <span className="grid size-9 place-items-center rounded-xl bg-[#173c2c] text-white shadow-[0_7px_18px_rgba(23,60,44,.18)]"><Icon name="trend" className="size-5" /></span>
-            <span className="text-[21px] font-bold tracking-[-.04em]">stockly</span>
+            <span className="text-[21px] font-bold tracking-[-.04em]">Stockly</span>
           </button>
 
           <nav className="hidden items-center gap-1 lg:flex" aria-label="Main navigation">
-            {['Overview', 'Holdings', 'Transactions'].map((item) => <button key={item} onClick={() => selectNav(item)} className={`rounded-lg px-3.5 py-2 text-sm font-medium transition ${(route.view === 'portfolio' && route.section === item.toLowerCase()) || (route.view === 'home' && item === 'Overview') ? 'bg-[#e9efea] text-[#173c2c]' : 'text-[#66716b] hover:bg-white hover:text-[#15231d]'}`}>{item}</button>)}
+            <button onClick={() => selectNav('Overview')} className={`rounded-lg px-3.5 py-2 text-sm font-medium transition ${route.view === 'home' ? 'bg-[#e9efea] text-[#173c2c] dark:text-[#b8e2c9]' : 'text-[#66716b] hover:bg-white hover:text-[#15231d]'}`}>Overview</button>
+            <div className="group relative">
+              <button onClick={() => selectNav('Holdings')} className={`flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-medium transition ${route.view === 'portfolio' ? 'bg-[#e9efea] text-[#173c2c] dark:text-[#b8e2c9]' : 'text-[#66716b] hover:bg-white hover:text-[#15231d]'}`} aria-haspopup="menu"><span>Portfolio</span><svg className="size-3.5 transition group-hover:rotate-180 group-focus-within:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6" /></svg></button>
+              <div className="invisible absolute left-0 top-full z-50 pt-2 opacity-0 transition group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100"><div role="menu" className="w-48 rounded-2xl border border-[#dce3dd] bg-white p-1.5 shadow-[0_16px_45px_rgba(20,38,29,.18)] dark:border-[#35463d] dark:bg-[#18231e]">{(['Holdings', 'Transactions'] as const).map((item) => <button key={item} role="menuitem" onClick={() => selectNav(item)} className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold ${route.view === 'portfolio' && route.section === item.toLowerCase() ? 'bg-[#eef2ee] text-[#285d43] dark:bg-[#25342c] dark:text-[#b8e2c9]' : 'text-[#66716b] hover:bg-[#f7f9f7] dark:hover:bg-[#202d26]'}`}><span className="grid size-7 place-items-center rounded-lg bg-[#eef2ee] text-[#285d43] dark:bg-[#25342c] dark:text-[#8dd0aa]"><Icon name={item === 'Holdings' ? 'briefcase' : 'activity'} className="size-3.5" /></span>{item}</button>)}</div></div>
+            </div>
           </nav>
 
-          {auth && <PortfolioNav auth={auth} selectedId={route.view === 'portfolio' ? route.portfolioId : undefined} onSelect={selectPortfolio} />}
+          {auth && <PortfolioNav auth={auth} selectedId={route.view === 'portfolio' ? route.portfolioId ?? preferredPortfolioId : preferredPortfolioId} onSelect={selectPortfolio} />}
 
           <form onSubmit={submitGlobalSearch} className="relative ml-auto hidden min-w-56 md:block xl:min-w-72">
             <Icon name="search" className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-[#879089]" />
             <input id="global-search" value={globalSearch} onChange={(event) => setGlobalSearch(event.target.value)} maxLength={50} className="w-full rounded-xl border border-[#dfe4df] bg-white py-2.5 pl-10 pr-12 text-sm shadow-sm outline-none placeholder:text-[#879089] focus:border-[#789887] focus:ring-4 focus:ring-[#e2ebe5]" placeholder="Search stocks or ETFs" aria-label="Search stocks or ETFs" />
             <button className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg px-2 py-1 text-xs font-bold text-[#526158] hover:bg-[#eef2ee]" aria-label="Submit search">↵</button>
           </form>
-          <button onClick={() => setDarkMode((current) => !current)} className="grid size-10 place-items-center rounded-xl border border-[#dfe4df] bg-white text-[#4e5c54] transition hover:border-[#aeb9b1]" aria-label={`Switch to ${darkMode ? 'light' : 'dark'} mode`} title={`Switch to ${darkMode ? 'light' : 'dark'} mode`}><Icon name={darkMode ? 'sun' : 'moon'} className="size-[18px]" /></button>
+          <button onClick={toggleTheme} className="grid size-10 place-items-center rounded-xl border border-[#dfe4df] bg-white text-[#4e5c54] transition hover:border-[#aeb9b1]" aria-label={`Switch to ${darkMode ? 'light' : 'dark'} mode`} title={`Switch to ${darkMode ? 'light' : 'dark'} mode`}><Icon name={darkMode ? 'sun' : 'moon'} className="size-[18px]" /></button>
           <button className="relative hidden size-10 place-items-center rounded-xl border border-[#dfe4df] bg-white text-[#4e5c54] transition hover:border-[#aeb9b1] sm:grid" aria-label="Notifications"><Icon name="bell" className="size-[18px]" /><span className="absolute right-2 top-2 size-1.5 rounded-full bg-[#f1805b] ring-2 ring-white" /></button>
-          {auth ? <button onClick={signOut} title="Sign out" className="hidden items-center gap-2 rounded-xl bg-[#173c2c] px-3 py-2 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(23,60,44,.18)] transition hover:bg-[#205139] sm:flex"><span className="grid size-6 place-items-center rounded-full bg-[#d8f768] text-[10px] font-extrabold text-[#173c2c]">{auth.user.name.slice(0, 1).toUpperCase()}</span><span className="max-w-24 truncate">{auth.user.name}</span></button> : <button onClick={() => setShowModal(true)} className="hidden items-center gap-2 rounded-xl bg-[#173c2c] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(23,60,44,.18)] transition hover:bg-[#205139] sm:flex"><Icon name="user" className="size-4" /> Sign in</button>}
+          {auth ? <UserMenu auth={auth} onSignOut={signOut} /> : <button onClick={() => setShowModal(true)} className="hidden items-center gap-2 rounded-xl bg-[#173c2c] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(23,60,44,.18)] transition hover:bg-[#205139] sm:flex"><Icon name="user" className="size-4" /> Sign in</button>}
           <button onClick={() => setMobileOpen(!mobileOpen)} className="grid size-10 place-items-center rounded-xl border border-[#dfe4df] bg-white lg:hidden" aria-label="Open menu"><Icon name={mobileOpen ? 'close' : 'menu'} /></button>
         </div>
-        {mobileOpen && <nav className="border-t border-[#e4e8e4] bg-white px-5 py-3 lg:hidden">{auth && <PortfolioNav mobile auth={auth} selectedId={route.view === 'portfolio' ? route.portfolioId : undefined} onSelect={(portfolioId) => { selectPortfolio(portfolioId); setMobileOpen(false) }} />}<form onSubmit={(event) => { submitGlobalSearch(event); setMobileOpen(false) }} className="relative mb-2"><Icon name="search" className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#879089]" /><input value={globalSearch} onChange={(event) => setGlobalSearch(event.target.value)} maxLength={50} className="w-full rounded-xl border border-[#dfe4df] py-3 pl-10 pr-3 text-sm outline-none" placeholder="Search stocks or ETFs" aria-label="Mobile instrument search" /></form>{['Overview', 'Holdings', 'Transactions'].map((item) => <button key={item} onClick={() => { selectNav(item); setMobileOpen(false) }} className="block w-full rounded-lg px-3 py-3 text-left text-sm font-medium hover:bg-[#f3f5f2]">{item}</button>)}</nav>}
+        {mobileOpen && <nav className="border-t border-[#e4e8e4] bg-white px-5 py-3 lg:hidden">{auth && <PortfolioNav mobile auth={auth} selectedId={route.view === 'portfolio' ? route.portfolioId : undefined} onSelect={(portfolioId) => { selectPortfolio(portfolioId); setMobileOpen(false) }} />}<form onSubmit={(event) => { submitGlobalSearch(event); setMobileOpen(false) }} className="relative mb-2"><Icon name="search" className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#879089]" /><input value={globalSearch} onChange={(event) => setGlobalSearch(event.target.value)} maxLength={50} className="w-full rounded-xl border border-[#dfe4df] py-3 pl-10 pr-3 text-sm outline-none" placeholder="Search stocks or ETFs" aria-label="Mobile instrument search" /></form><button onClick={() => { selectNav('Overview'); setMobileOpen(false) }} className="block w-full rounded-lg px-3 py-3 text-left text-sm font-medium hover:bg-[#f3f5f2]">Overview</button><p className="px-3 pb-1 pt-3 text-[10px] font-bold uppercase tracking-[.13em] text-[#87918b]">Portfolio</p>{(['Holdings', 'Transactions'] as const).map((item) => <button key={item} onClick={() => { selectNav(item); setMobileOpen(false) }} className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-medium hover:bg-[#f3f5f2]"><Icon name={item === 'Holdings' ? 'briefcase' : 'activity'} className="size-4 text-[#617068]" />{item}</button>)}</nav>}
       </header>
 
       {route.view === 'home' && <main className="mx-auto max-w-[1480px] px-5 py-8 lg:px-8 lg:py-11">
@@ -242,7 +269,7 @@ function App() {
 
       {route.view === 'search' && <SearchResultsPage key={route.query} query={route.query} onSearch={(query) => navigate({ view: 'search', query })} onSelect={(symbol) => navigate({ view: 'instrument', symbol })} />}
       {route.view === 'instrument' && <InstrumentPage key={`${route.symbol}-${auth?.user.id ?? 'guest'}`} symbol={route.symbol} auth={auth} watched={watching.has(route.symbol)} onNeedAuth={() => setShowModal(true)} onWatchChange={(symbol, isWatched) => { setWatching((current) => { const next = new Set(current); if (isWatched) next.add(symbol); else next.delete(symbol); return next }); setToast(isWatched ? `${symbol} added to watchlist` : `${symbol} removed from watchlist`) }} onBack={() => window.history.length > 1 ? window.history.back() : navigate({ view: 'search', query: route.symbol })} />}
-      {route.view === 'portfolio' && <PortfolioPage key={`${auth?.user.id ?? 'guest'}-${route.section}-${route.portfolioId ?? 'default'}-${route.addTransaction}`} auth={auth} section={route.section} requestedPortfolioId={route.portfolioId} startWithTransaction={route.addTransaction} onNeedAuth={() => setShowModal(true)} onSelectInstrument={(symbol) => navigate({ view: 'instrument', symbol })} />}
+      {route.view === 'portfolio' && <PortfolioPage key={`${auth?.user.id ?? 'guest'}-${route.section}-${route.portfolioId ?? preferredPortfolioId ?? 'default'}-${route.addTransaction}`} auth={auth} section={route.section} requestedPortfolioId={route.portfolioId ?? preferredPortfolioId} startWithTransaction={route.addTransaction} onNeedAuth={() => setShowModal(true)} onSelectInstrument={(symbol) => navigate({ view: 'instrument', symbol })} />}
 
       {toast && <div className="fixed bottom-5 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-xl bg-[#15231d] px-4 py-3 text-sm font-medium text-white shadow-2xl"><span className="grid size-5 place-items-center rounded-full bg-[#d8f768] text-[#173c2c]"><Icon name="check" className="size-3.5" /></span>{toast}</div>}
       {showModal && <AuthModal onClose={() => setShowModal(false)} onSuccess={completeAuth} />}
