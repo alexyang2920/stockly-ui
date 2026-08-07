@@ -150,7 +150,7 @@ function App() {
   }
 
   const navigate = (nextRoute: Route) => {
-    const url = nextRoute.view === 'home' ? '/' : nextRoute.view === 'search' ? `/search?q=${encodeURIComponent(nextRoute.query)}` : nextRoute.view === 'instrument' ? `/instruments/${encodeURIComponent(nextRoute.symbol)}` : `/portfolio/${nextRoute.section}?${new URLSearchParams({ ...(nextRoute.portfolioId ? { portfolio: nextRoute.portfolioId } : {}), ...(nextRoute.addTransaction ? { add: 'transaction' } : {}) })}`
+    const url = nextRoute.view === 'home' ? '/' : nextRoute.view === 'search' ? `/search?q=${encodeURIComponent(nextRoute.query)}` : nextRoute.view === 'instrument' ? `/instruments/${encodeURIComponent(nextRoute.symbol)}` : `/portfolio/${nextRoute.section}${nextRoute.addTransaction ? '?add=transaction' : ''}`
     window.history.pushState({}, '', url)
     setRoute(nextRoute)
     if (nextRoute.view === 'search') setGlobalSearch(nextRoute.query)
