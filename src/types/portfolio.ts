@@ -61,6 +61,11 @@ export type DividendCalendarEvent = {
   dividendType: string | null
 }
 
+export type PortfolioPerformance = {
+  realizedGain: number
+  currency: string
+}
+
 export type Page<T> = {
   content: T[]
   totalElements: number

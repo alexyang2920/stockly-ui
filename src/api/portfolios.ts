@@ -1,5 +1,5 @@
 import type { AuthResponse } from '../types/auth'
-import type { CreatePortfolioInput, DividendCalendarEvent, Holding, Page, Portfolio, PortfolioTransaction, TransactionInput, TransactionType } from '../types/portfolio'
+import type { CreatePortfolioInput, DividendCalendarEvent, Holding, Page, Portfolio, PortfolioPerformance, PortfolioTransaction, TransactionInput, TransactionType } from '../types/portfolio'
 import { apiRequest } from './client'
 
 export function getPortfolios(auth: AuthResponse, signal?: AbortSignal) {
@@ -20,6 +20,10 @@ export function deletePortfolio(auth: AuthResponse, portfolioId: string, force =
 
 export function getHoldings(auth: AuthResponse, portfolioId: string, signal?: AbortSignal) {
   return apiRequest<Holding[]>(`/portfolios/${portfolioId}/holdings`, { auth, signal })
+}
+
+export function getPortfolioPerformance(auth: AuthResponse, portfolioId: string, signal?: AbortSignal) {
+  return apiRequest<PortfolioPerformance>(`/portfolios/${portfolioId}/performance`, { auth, signal })
 }
 
 export function getDividendCalendar(auth: AuthResponse, portfolioId: string, from: string, to: string, signal?: AbortSignal) {

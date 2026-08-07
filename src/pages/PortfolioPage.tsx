@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { apiErrorMessage } from '../api/client'
 import { searchInstruments } from '../api/instruments'
-import { createTransaction, deleteTransaction, getHoldings, getPortfolios, getTransactions, updateTransaction } from '../api/portfolios'
+import { createTransaction, deleteTransaction, getHoldings, getPortfolioPerformance, getPortfolios, getTransactions, updateTransaction } from '../api/portfolios'
 import InstrumentMark from '../components/InstrumentMark'
 import type { AuthResponse } from '../types/auth'
 import type { Instrument } from '../types/instrument'
@@ -46,6 +46,7 @@ function PortfolioPage({ auth, section, requestedPortfolioId, onNeedAuth, onSele
   const [symbolFilter, setSymbolFilter] = useState('')
   const [loading, setLoading] = useState(Boolean(auth))
   const [detailsLoading, setDetailsLoading] = useState(false)
+  const [realizedGain, setRealizedGain] = useState(0)
   const [error, setError] = useState('')
   const [showTransaction, setShowTransaction] = useState(startWithTransaction)
   const [editing, setEditing] = useState<PortfolioTransaction | null>(null)
@@ -70,11 +71,13 @@ function PortfolioPage({ auth, section, requestedPortfolioId, onNeedAuth, onSele
     return Promise.all([
       getHoldings(auth, selectedId, signal),
       getTransactions(auth, selectedId, { symbol: symbolFilter.trim().toUpperCase(), type: typeFilter, page, size: 20 }, signal),
-    ]).then(([holdingData, transactionData]) => {
+      getPortfolioPerformance(auth, selectedId, signal),
+    ]).then(([holdingData, transactionData, performance]) => {
       setHoldings(holdingData)
       setTransactions(transactionData.content)
       setTotalTransactions(transactionData.totalElements)
       setTotalPages(transactionData.totalPages)
+      setRealizedGain(performance.realizedGain)
     }).catch((reason: unknown) => {
       if (reason instanceof DOMException && reason.name === 'AbortError') return
       setError(apiErrorMessage(reason, 'Unable to load portfolio details.'))
@@ -121,12 +124,12 @@ function PortfolioPage({ auth, section, requestedPortfolioId, onNeedAuth, onSele
       <section className="mb-5 grid gap-4 md:grid-cols-3">
         <SummaryCard label="Market value" value={totals.quotedPositions ? money(totals.marketValue, selected?.currency) : '—'} note={`${totals.quotedPositions} of ${holdings.length} positions quoted`} />
         <SummaryCard label="Unrealized gain" value={totals.quotedPositions ? money(totals.unrealizedGain, selected?.currency) : '—'} note={`Cost basis ${money(totals.costBasis, selected?.currency)}`} positive={totals.quotedPositions ? totals.unrealizedGain >= 0 : undefined} />
-        <SummaryCard label="Realized gain" value={money(totals.realizedGain, selected?.currency)} note={`${totalTransactions} ledger transactions`} positive={totals.realizedGain >= 0} />
+        <SummaryCard label="Realized gain" value={money(realizedGain, selected?.currency)} note="Includes open and fully sold positions" positive={realizedGain >= 0} />
       </section>
 
       <section className="mb-5 overflow-hidden rounded-[22px] border border-[#dfe4df] bg-white">
-        <div className="border-b border-[#e5e9e5] px-5 py-5 md:px-6"><h2 className="text-lg font-semibold tracking-[-.02em]">Holdings</h2><p className="mt-1 text-xs text-[#7b867f]">Weighted-average cost from recorded purchases and sales</p></div>
-        {detailsLoading && !holdings.length ? <div className="h-44 animate-pulse bg-[#f7f9f7]" /> : holdings.length === 0 ? <EmptyState title="No open positions" text="Add a BUY transaction to begin building this portfolio." /> : <div className="overflow-x-auto"><table className="w-full min-w-[980px] text-left"><thead className="bg-[#fafbf9] text-[10px] font-bold uppercase tracking-[.12em] text-[#849088]"><tr><th className="px-6 py-3">Instrument</th><th className="px-4 py-3 text-right">Quantity</th><th className="px-4 py-3 text-right">Average cost</th><th className="px-4 py-3 text-right">Market price</th><th className="px-4 py-3 text-right">Market value</th><th className="px-4 py-3 text-right">Unrealized</th><th className="px-6 py-3 text-right">Realized</th></tr></thead><tbody>{holdings.map((holding) => <tr key={holding.symbol} className="border-t border-[#ecefec] hover:bg-[#fafcf9] dark:hover:bg-[#1a2520]"><td className="px-6 py-4"><button onClick={() => onSelectInstrument(holding.symbol)} className="flex items-center gap-3 text-left"><InstrumentMark symbol={holding.symbol} size="small" /><span><strong className="block text-sm">{holding.symbol}</strong><span className="mt-0.5 block text-xs text-[#7b867f]">{holding.name}</span></span></button></td><td className="px-4 py-4 text-right text-sm font-semibold tabular-nums">{quantity(holding.quantity)}</td><td className="px-4 py-4 text-right text-sm tabular-nums">{money(holding.averageCost, holding.currency)}</td><td className="px-4 py-4 text-right text-sm tabular-nums">{holding.marketPrice == null ? '—' : <span>{money(holding.marketPrice, holding.currency)}<small className="mt-0.5 block text-[10px] text-[#87918b]">{holding.quoteDate}</small></span>}</td><td className="px-4 py-4 text-right text-sm font-semibold tabular-nums">{holding.marketValue == null ? '—' : money(holding.marketValue, holding.currency)}</td><td className={`px-4 py-4 text-right text-sm font-bold tabular-nums ${holding.unrealizedGain == null ? 'text-[#87918b]' : holding.unrealizedGain >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{holding.unrealizedGain == null ? '—' : <span>{holding.unrealizedGain >= 0 ? '+' : ''}{money(holding.unrealizedGain, holding.currency)}<small className="mt-0.5 block text-[10px]">{holding.unrealizedGainPercent == null ? '' : `${holding.unrealizedGainPercent >= 0 ? '+' : ''}${holding.unrealizedGainPercent.toFixed(2)}%`}</small></span>}</td><td className={`px-6 py-4 text-right text-sm font-bold tabular-nums ${holding.realizedGain >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{holding.realizedGain >= 0 ? '+' : ''}{money(holding.realizedGain, holding.currency)}</td></tr>)}</tbody></table></div>}
+        <div className="border-b border-[#e5e9e5] px-5 py-5 md:px-6"><h2 className="text-lg font-semibold tracking-[-.02em]">Holdings</h2><p className="mt-1 text-xs text-[#7b867f]">Latest server-synchronized prices · weighted-average cost</p></div>
+        {detailsLoading && !holdings.length ? <div className="h-44 animate-pulse bg-[#f7f9f7]" /> : holdings.length === 0 ? <EmptyState title="No open positions" text="Add a BUY transaction to begin building this portfolio." /> : <div className="overflow-x-auto"><table className="w-full min-w-[980px] text-left"><thead className="bg-[#fafbf9] text-[10px] font-bold uppercase tracking-[.12em] text-[#849088]"><tr><th className="px-6 py-3">Instrument</th><th className="px-4 py-3 text-right">Quantity</th><th className="px-4 py-3 text-right">Average cost</th><th className="px-4 py-3 text-right">Latest price</th><th className="px-4 py-3 text-right">Market value</th><th className="px-4 py-3 text-right">Unrealized gain</th><th className="px-6 py-3 text-right">Realized gain</th></tr></thead><tbody>{holdings.map((holding) => <tr key={holding.symbol} className="border-t border-[#ecefec] hover:bg-[#fafcf9] dark:hover:bg-[#1a2520]"><td className="px-6 py-4"><button onClick={() => onSelectInstrument(holding.symbol)} className="flex items-center gap-3 text-left"><InstrumentMark symbol={holding.symbol} size="small" /><span><strong className="block text-sm">{holding.symbol}</strong><span className="mt-0.5 block text-xs text-[#7b867f]">{holding.name}</span></span></button></td><td className="px-4 py-4 text-right text-sm font-semibold tabular-nums">{quantity(holding.quantity)}</td><td className="px-4 py-4 text-right text-sm tabular-nums">{money(holding.averageCost, holding.currency)}</td><td className="px-4 py-4 text-right text-sm tabular-nums">{holding.marketPrice == null ? <span className="text-[#87918b]">Not quoted</span> : <span>{money(holding.marketPrice, holding.currency)}<small className="mt-0.5 block text-[10px] text-[#87918b]">Close · {holding.quoteDate}</small></span>}</td><td className="px-4 py-4 text-right text-sm font-semibold tabular-nums">{holding.marketValue == null ? '—' : money(holding.marketValue, holding.currency)}</td><td className={`px-4 py-4 text-right text-sm font-bold tabular-nums ${holding.unrealizedGain == null ? 'text-[#87918b]' : holding.unrealizedGain >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{holding.unrealizedGain == null ? '—' : <span>{holding.unrealizedGain >= 0 ? '+' : ''}{money(holding.unrealizedGain, holding.currency)}<small className="mt-0.5 block text-[10px]">{holding.unrealizedGainPercent == null ? '' : `${holding.unrealizedGainPercent >= 0 ? '+' : ''}${holding.unrealizedGainPercent.toFixed(2)}%`}</small></span>}</td><td className={`px-6 py-4 text-right text-sm font-bold tabular-nums ${holding.realizedGain >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{holding.realizedGain >= 0 ? '+' : ''}{money(holding.realizedGain, holding.currency)}</td></tr>)}</tbody></table></div>}
       </section>
       </>}
 
