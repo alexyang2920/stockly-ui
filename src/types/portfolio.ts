@@ -47,8 +47,9 @@ export type Holding = {
 export type DividendCalendarEvent = {
   symbol: string
   name: string
+  estimated: boolean
   calendarDate: string
-  dateType: 'PAY_DATE' | 'EX_DIVIDEND'
+  dateType: 'PAY_DATE' | 'EX_DIVIDEND' | 'ESTIMATED'
   declarationDate: string | null
   exDividendDate: string
   recordDate: string | null
