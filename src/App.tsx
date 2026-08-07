@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import AuthModal from './components/AuthModal'
 import InstrumentMark from './components/InstrumentMark'
+import PortfolioNav from './components/PortfolioNav'
 import WatchlistTable from './components/WatchlistTable'
 import InstrumentPage from './pages/InstrumentPage'
 import PortfolioPage from './pages/PortfolioPage'
@@ -9,13 +10,16 @@ import type { AuthResponse } from './types/auth'
 import type { Instrument } from './types/instrument'
 import './App.css'
 
-type Route = { view: 'home' } | { view: 'search', query: string } | { view: 'instrument', symbol: string } | { view: 'portfolio', addTransaction: boolean }
+type Route = { view: 'home' } | { view: 'search', query: string } | { view: 'instrument', symbol: string } | { view: 'portfolio', section: 'holdings' | 'transactions', portfolioId?: string, addTransaction: boolean }
 
 function routeFromLocation(): Route {
   const instrumentMatch = window.location.pathname.match(/^\/instruments\/([^/]+)$/)
   if (instrumentMatch) return { view: 'instrument', symbol: decodeURIComponent(instrumentMatch[1]).toUpperCase() }
   if (window.location.pathname === '/search') return { view: 'search', query: new URLSearchParams(window.location.search).get('q')?.slice(0, 50) || '' }
-  if (window.location.pathname === '/portfolio') return { view: 'portfolio', addTransaction: new URLSearchParams(window.location.search).get('add') === 'transaction' }
+  if (window.location.pathname === '/portfolio' || window.location.pathname === '/portfolio/holdings' || window.location.pathname === '/portfolio/transactions') {
+    const params = new URLSearchParams(window.location.search)
+    return { view: 'portfolio', section: window.location.pathname.endsWith('/transactions') ? 'transactions' : 'holdings', portfolioId: params.get('portfolio') || undefined, addTransaction: params.get('add') === 'transaction' }
+  }
   return { view: 'home' }
 }
 
@@ -90,7 +94,6 @@ function StockMark({ symbol, small = false }: { symbol: string, small?: boolean 
 
 function App() {
   const [darkMode, setDarkMode] = useState(() => document.documentElement.classList.contains('dark'))
-  const [activeNav, setActiveNav] = useState('Overview')
   const [mobileOpen, setMobileOpen] = useState(false)
   const [watching, setWatching] = useState(() => new Set<string>())
   const [showModal, setShowModal] = useState(false)
@@ -133,7 +136,7 @@ function App() {
   }
 
   const navigate = (nextRoute: Route) => {
-    const url = nextRoute.view === 'home' ? '/' : nextRoute.view === 'search' ? `/search?q=${encodeURIComponent(nextRoute.query)}` : nextRoute.view === 'instrument' ? `/instruments/${encodeURIComponent(nextRoute.symbol)}` : `/portfolio${nextRoute.addTransaction ? '?add=transaction' : ''}`
+    const url = nextRoute.view === 'home' ? '/' : nextRoute.view === 'search' ? `/search?q=${encodeURIComponent(nextRoute.query)}` : nextRoute.view === 'instrument' ? `/instruments/${encodeURIComponent(nextRoute.symbol)}` : `/portfolio/${nextRoute.section}?${new URLSearchParams({ ...(nextRoute.portfolioId ? { portfolio: nextRoute.portfolioId } : {}), ...(nextRoute.addTransaction ? { add: 'transaction' } : {}) })}`
     window.history.pushState({}, '', url)
     setRoute(nextRoute)
     if (nextRoute.view === 'search') setGlobalSearch(nextRoute.query)
@@ -147,26 +150,32 @@ function App() {
   }
 
   const selectNav = (item: string) => {
-    setActiveNav(item)
     if (item === 'Overview') navigate({ view: 'home' })
-    if (item === 'Portfolio') {
-      if (auth) navigate({ view: 'portfolio', addTransaction: false })
+    if (item === 'Holdings' || item === 'Transactions') {
+      if (auth) navigate({ view: 'portfolio', section: item.toLowerCase() as 'holdings' | 'transactions', portfolioId: route.view === 'portfolio' ? route.portfolioId : undefined, addTransaction: false })
       else setShowModal(true)
     }
+  }
+
+  const selectPortfolio = (portfolioId: string) => {
+    const section = route.view === 'portfolio' ? route.section : 'holdings'
+    navigate({ view: 'portfolio', section, portfolioId, addTransaction: false })
   }
 
   return (
     <div className="min-h-screen bg-[#f7f8f5] text-[#15231d]">
       <header className="sticky top-0 z-40 border-b border-[#dfe4df] bg-[#fbfcf9]/95 backdrop-blur-xl">
         <div className="mx-auto flex h-[72px] max-w-[1480px] items-center gap-8 px-5 lg:px-8">
-          <button className="flex items-center gap-2.5" onClick={() => { setActiveNav('Overview'); navigate({ view: 'home' }) }} aria-label="Stockly home">
+          <button className="flex items-center gap-2.5" onClick={() => navigate({ view: 'home' })} aria-label="Stockly home">
             <span className="grid size-9 place-items-center rounded-xl bg-[#173c2c] text-white shadow-[0_7px_18px_rgba(23,60,44,.18)]"><Icon name="trend" className="size-5" /></span>
             <span className="text-[21px] font-bold tracking-[-.04em]">stockly</span>
           </button>
 
           <nav className="hidden items-center gap-1 lg:flex" aria-label="Main navigation">
-            {['Overview', 'Portfolio'].map((item) => <button key={item} onClick={() => selectNav(item)} className={`rounded-lg px-3.5 py-2 text-sm font-medium transition ${activeNav === item ? 'bg-[#e9efea] text-[#173c2c]' : 'text-[#66716b] hover:bg-white hover:text-[#15231d]'}`}>{item}</button>)}
+            {['Overview', 'Holdings', 'Transactions'].map((item) => <button key={item} onClick={() => selectNav(item)} className={`rounded-lg px-3.5 py-2 text-sm font-medium transition ${(route.view === 'portfolio' && route.section === item.toLowerCase()) || (route.view === 'home' && item === 'Overview') ? 'bg-[#e9efea] text-[#173c2c]' : 'text-[#66716b] hover:bg-white hover:text-[#15231d]'}`}>{item}</button>)}
           </nav>
+
+          {auth && <PortfolioNav auth={auth} selectedId={route.view === 'portfolio' ? route.portfolioId : undefined} onSelect={selectPortfolio} />}
 
           <form onSubmit={submitGlobalSearch} className="relative ml-auto hidden min-w-56 md:block xl:min-w-72">
             <Icon name="search" className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-[#879089]" />
@@ -178,7 +187,7 @@ function App() {
           {auth ? <button onClick={signOut} title="Sign out" className="hidden items-center gap-2 rounded-xl bg-[#173c2c] px-3 py-2 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(23,60,44,.18)] transition hover:bg-[#205139] sm:flex"><span className="grid size-6 place-items-center rounded-full bg-[#d8f768] text-[10px] font-extrabold text-[#173c2c]">{auth.user.name.slice(0, 1).toUpperCase()}</span><span className="max-w-24 truncate">{auth.user.name}</span></button> : <button onClick={() => setShowModal(true)} className="hidden items-center gap-2 rounded-xl bg-[#173c2c] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(23,60,44,.18)] transition hover:bg-[#205139] sm:flex"><Icon name="user" className="size-4" /> Sign in</button>}
           <button onClick={() => setMobileOpen(!mobileOpen)} className="grid size-10 place-items-center rounded-xl border border-[#dfe4df] bg-white lg:hidden" aria-label="Open menu"><Icon name={mobileOpen ? 'close' : 'menu'} /></button>
         </div>
-        {mobileOpen && <nav className="border-t border-[#e4e8e4] bg-white px-5 py-3 lg:hidden"><form onSubmit={(event) => { submitGlobalSearch(event); setMobileOpen(false) }} className="relative mb-2"><Icon name="search" className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#879089]" /><input value={globalSearch} onChange={(event) => setGlobalSearch(event.target.value)} maxLength={50} className="w-full rounded-xl border border-[#dfe4df] py-3 pl-10 pr-3 text-sm outline-none" placeholder="Search stocks or ETFs" aria-label="Mobile instrument search" /></form>{['Overview', 'Portfolio'].map((item) => <button key={item} onClick={() => { selectNav(item); setMobileOpen(false) }} className="block w-full rounded-lg px-3 py-3 text-left text-sm font-medium hover:bg-[#f3f5f2]">{item}</button>)}</nav>}
+        {mobileOpen && <nav className="border-t border-[#e4e8e4] bg-white px-5 py-3 lg:hidden">{auth && <PortfolioNav mobile auth={auth} selectedId={route.view === 'portfolio' ? route.portfolioId : undefined} onSelect={(portfolioId) => { selectPortfolio(portfolioId); setMobileOpen(false) }} />}<form onSubmit={(event) => { submitGlobalSearch(event); setMobileOpen(false) }} className="relative mb-2"><Icon name="search" className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#879089]" /><input value={globalSearch} onChange={(event) => setGlobalSearch(event.target.value)} maxLength={50} className="w-full rounded-xl border border-[#dfe4df] py-3 pl-10 pr-3 text-sm outline-none" placeholder="Search stocks or ETFs" aria-label="Mobile instrument search" /></form>{['Overview', 'Holdings', 'Transactions'].map((item) => <button key={item} onClick={() => { selectNav(item); setMobileOpen(false) }} className="block w-full rounded-lg px-3 py-3 text-left text-sm font-medium hover:bg-[#f3f5f2]">{item}</button>)}</nav>}
       </header>
 
       {route.view === 'home' && <main className="mx-auto max-w-[1480px] px-5 py-8 lg:px-8 lg:py-11">
@@ -190,7 +199,7 @@ function App() {
           </div>
           <div className="flex items-center gap-2 self-start md:self-auto">
             <button onClick={() => setToast('Market data refreshed')} className="flex items-center gap-2 rounded-xl border border-[#dce2dd] bg-white px-4 py-2.5 text-sm font-semibold text-[#425047] shadow-sm transition hover:border-[#afbab2]"><Icon name="clock" className="size-4" /> Aug 3, 2026</button>
-            <button onClick={() => auth ? navigate({ view: 'portfolio', addTransaction: true }) : setShowModal(true)} className="flex items-center gap-2 rounded-xl bg-[#d8f768] px-4 py-2.5 text-sm font-bold text-[#1c2d24] shadow-sm transition hover:bg-[#c9ed4d]"><Icon name="plus" className="size-4" /> Add investment</button>
+            <button onClick={() => auth ? navigate({ view: 'portfolio', section: 'transactions', addTransaction: true }) : setShowModal(true)} className="flex items-center gap-2 rounded-xl bg-[#d8f768] px-4 py-2.5 text-sm font-bold text-[#1c2d24] shadow-sm transition hover:bg-[#c9ed4d]"><Icon name="plus" className="size-4" /> Add investment</button>
           </div>
         </section>
 
@@ -204,7 +213,7 @@ function App() {
           <WatchlistTable key={auth?.user.id ?? 'signed-out'} auth={auth} onNeedAuth={() => setShowModal(true)} onSelectInstrument={(symbol) => navigate({ view: 'instrument', symbol })} onSymbolsChange={syncWatchlistSymbols} />
 
           <aside className="space-y-6">
-            <div onClick={() => auth ? navigate({ view: 'portfolio', addTransaction: false }) : setShowModal(true)} className="cursor-pointer rounded-[22px] bg-[#173c2c] p-6 text-white shadow-[0_18px_45px_rgba(23,60,44,.16)] transition hover:-translate-y-0.5">
+            <div onClick={() => auth ? navigate({ view: 'portfolio', section: 'holdings', addTransaction: false }) : setShowModal(true)} className="cursor-pointer rounded-[22px] bg-[#173c2c] p-6 text-white shadow-[0_18px_45px_rgba(23,60,44,.16)] transition hover:-translate-y-0.5">
               <div className="flex items-start justify-between"><span className="grid size-10 place-items-center rounded-xl bg-white/10 text-[#d8f768]"><Icon name="briefcase" /></span><button className="text-white/60 hover:text-white"><Icon name="more" /></button></div>
               <p className="mt-7 text-xs font-semibold uppercase tracking-[.14em] text-white/55">Portfolio value</p>
               <div className="mt-2 text-[34px] font-semibold tracking-[-.04em]">$48,240.18</div>
@@ -218,14 +227,14 @@ function App() {
               <div className="mt-5 space-y-1">
                 {fallbackInstruments.slice(0, 3).map((item) => <div key={item.symbol} className="flex items-center gap-3 rounded-xl px-1 py-2.5"><StockMark symbol={item.symbol} small /><div className="min-w-0 flex-1"><p className="text-sm font-bold">{item.symbol}</p><p className="truncate text-[11px] text-[#8a948e]">{item.name}</p></div><div className="text-right"><p className="text-sm font-semibold">${item.price}</p><p className={`text-[11px] font-semibold ${(item.change ?? 0) > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>{(item.change ?? 0) > 0 ? '+' : ''}{item.change}%</p></div></div>)}
               </div>
-              <button onClick={() => setActiveNav('Markets')} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-[#dfe4df] py-2.5 text-sm font-semibold transition hover:bg-[#f7f9f7]">Explore movers <Icon name="chevron" className="size-4" /></button>
+              <button onClick={() => setToast('More market insights are coming next')} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-[#dfe4df] py-2.5 text-sm font-semibold transition hover:bg-[#f7f9f7]">Explore movers <Icon name="chevron" className="size-4" /></button>
             </div>
 
             <div className="relative overflow-hidden rounded-[22px] border border-[#dce6de] bg-[#eaf3eb] p-6">
               <div className="absolute -right-8 -top-10 size-32 rounded-full border-[18px] border-white/40" />
               <span className="grid size-9 place-items-center rounded-xl bg-white text-[#2e684c] shadow-sm"><Icon name="sparkles" className="size-[18px]" /></span>
               <h3 className="mt-5 max-w-[220px] text-lg font-semibold leading-tight tracking-[-.025em]">Make smarter moves with financial insights.</h3>
-              <button onClick={() => setActiveNav('Financials')} className="mt-4 flex items-center gap-2 text-sm font-bold text-[#24563f]">Explore financials <Icon name="arrow" className="size-4" /></button>
+              <button onClick={() => setToast('Search for a company to explore its financials')} className="mt-4 flex items-center gap-2 text-sm font-bold text-[#24563f]">Explore financials <Icon name="arrow" className="size-4" /></button>
             </div>
           </aside>
         </section>
@@ -233,7 +242,7 @@ function App() {
 
       {route.view === 'search' && <SearchResultsPage key={route.query} query={route.query} onSearch={(query) => navigate({ view: 'search', query })} onSelect={(symbol) => navigate({ view: 'instrument', symbol })} />}
       {route.view === 'instrument' && <InstrumentPage key={`${route.symbol}-${auth?.user.id ?? 'guest'}`} symbol={route.symbol} auth={auth} watched={watching.has(route.symbol)} onNeedAuth={() => setShowModal(true)} onWatchChange={(symbol, isWatched) => { setWatching((current) => { const next = new Set(current); if (isWatched) next.add(symbol); else next.delete(symbol); return next }); setToast(isWatched ? `${symbol} added to watchlist` : `${symbol} removed from watchlist`) }} onBack={() => window.history.length > 1 ? window.history.back() : navigate({ view: 'search', query: route.symbol })} />}
-      {route.view === 'portfolio' && <PortfolioPage key={`${auth?.user.id ?? 'guest'}-${route.addTransaction}`} auth={auth} startWithTransaction={route.addTransaction} onNeedAuth={() => setShowModal(true)} onSelectInstrument={(symbol) => navigate({ view: 'instrument', symbol })} />}
+      {route.view === 'portfolio' && <PortfolioPage key={`${auth?.user.id ?? 'guest'}-${route.section}-${route.portfolioId ?? 'default'}-${route.addTransaction}`} auth={auth} section={route.section} requestedPortfolioId={route.portfolioId} startWithTransaction={route.addTransaction} onNeedAuth={() => setShowModal(true)} onSelectInstrument={(symbol) => navigate({ view: 'instrument', symbol })} />}
 
       {toast && <div className="fixed bottom-5 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-xl bg-[#15231d] px-4 py-3 text-sm font-medium text-white shadow-2xl"><span className="grid size-5 place-items-center rounded-full bg-[#d8f768] text-[#173c2c]"><Icon name="check" className="size-3.5" /></span>{toast}</div>}
       {showModal && <AuthModal onClose={() => setShowModal(false)} onSuccess={completeAuth} />}

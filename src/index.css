@@ -40,6 +40,19 @@ body,
   transition: background-color 180ms ease, color 180ms ease;
 }
 
+[class~="z-60"][class~="backdrop-blur-sm"] {
+  align-items: start;
+  background-color: transparent;
+  backdrop-filter: none;
+  padding-top: 5.75rem;
+}
+
+@media (max-width: 640px) {
+  [class~="z-60"][class~="backdrop-blur-sm"] {
+    padding-top: 5rem;
+  }
+}
+
 /* The app predates theme tokens, so these mappings turn its existing palette into
    a coherent dark surface system without duplicating every component class. */
 .dark [class~="bg-[#f7f8f5]"] { background-color: #0c1210 !important; }

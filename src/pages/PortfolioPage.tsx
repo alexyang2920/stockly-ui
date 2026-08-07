@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { apiErrorMessage } from '../api/client'
 import { searchInstruments } from '../api/instruments'
-import { createPortfolio, createTransaction, deletePortfolio, deleteTransaction, getHoldings, getPortfolios, getTransactions, updatePortfolio, updateTransaction } from '../api/portfolios'
+import { createTransaction, deleteTransaction, getHoldings, getPortfolios, getTransactions, updateTransaction } from '../api/portfolios'
 import InstrumentMark from '../components/InstrumentMark'
 import type { AuthResponse } from '../types/auth'
 import type { Instrument } from '../types/instrument'
@@ -9,6 +9,8 @@ import type { Holding, Portfolio, PortfolioTransaction, TransactionInput, Transa
 
 type PortfolioPageProps = {
   auth: AuthResponse | null
+  section: 'holdings' | 'transactions'
+  requestedPortfolioId?: string
   onNeedAuth: () => void
   onSelectInstrument: (symbol: string) => void
   startWithTransaction?: boolean
@@ -32,7 +34,7 @@ function shortDate(value: string) {
   return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(value))
 }
 
-function PortfolioPage({ auth, onNeedAuth, onSelectInstrument, startWithTransaction = false }: PortfolioPageProps) {
+function PortfolioPage({ auth, section, requestedPortfolioId, onNeedAuth, onSelectInstrument, startWithTransaction = false }: PortfolioPageProps) {
   const [portfolios, setPortfolios] = useState<Portfolio[]>([])
   const [selectedId, setSelectedId] = useState('')
   const [holdings, setHoldings] = useState<Holding[]>([])
@@ -45,8 +47,6 @@ function PortfolioPage({ auth, onNeedAuth, onSelectInstrument, startWithTransact
   const [loading, setLoading] = useState(Boolean(auth))
   const [detailsLoading, setDetailsLoading] = useState(false)
   const [error, setError] = useState('')
-  const [showCreate, setShowCreate] = useState(false)
-  const [showEdit, setShowEdit] = useState(false)
   const [showTransaction, setShowTransaction] = useState(startWithTransaction)
   const [editing, setEditing] = useState<PortfolioTransaction | null>(null)
 
@@ -58,13 +58,12 @@ function PortfolioPage({ auth, onNeedAuth, onSelectInstrument, startWithTransact
     getPortfolios(auth, controller.signal)
       .then((data) => {
         setPortfolios(data)
-        setSelectedId((current) => current || data[0]?.id || '')
-        if (data.length === 0) setShowCreate(true)
+        setSelectedId(data.some((portfolio) => portfolio.id === requestedPortfolioId) ? requestedPortfolioId! : data[0]?.id || '')
       })
       .catch((reason: unknown) => setError(apiErrorMessage(reason, 'Unable to load your portfolios.')))
       .finally(() => { if (!controller.signal.aborted) setLoading(false) })
     return () => controller.abort()
-  }, [auth])
+  }, [auth, requestedPortfolioId])
 
   const loadDetails = useCallback((signal?: AbortSignal) => {
     if (!auth || !selectedId) return Promise.resolve()
@@ -93,28 +92,6 @@ function PortfolioPage({ auth, onNeedAuth, onSelectInstrument, startWithTransact
     realizedGain: result.realizedGain + holding.realizedGain,
   }), { costBasis: 0, realizedGain: 0 }), [holdings])
 
-  const createdPortfolio = (portfolio: Portfolio) => {
-    setPortfolios((current) => [...current, portfolio])
-    setSelectedId(portfolio.id)
-    setShowCreate(false)
-  }
-
-  const removePortfolio = async () => {
-    if (!auth || !selected) return
-    const force = totalTransactions > 0
-    const warning = force ? `Delete “${selected.name}” and all ${totalTransactions} transactions? This cannot be undone.` : `Delete “${selected.name}”?`
-    if (!window.confirm(warning)) return
-    try {
-      await deletePortfolio(auth, selected.id, force)
-      const next = portfolios.filter((portfolio) => portfolio.id !== selected.id)
-      setPortfolios(next)
-      setSelectedId(next[0]?.id ?? '')
-      if (!next.length) setShowCreate(true)
-    } catch (reason) {
-      setError(apiErrorMessage(reason, 'Unable to delete portfolio.'))
-    }
-  }
-
   const removeTransaction = async (transaction: PortfolioTransaction) => {
     if (!auth || !selected || !window.confirm(`Delete this ${transaction.type.toLowerCase()} transaction?`)) return
     try {
@@ -130,18 +107,14 @@ function PortfolioPage({ auth, onNeedAuth, onSelectInstrument, startWithTransact
 
   return <main className="mx-auto max-w-[1280px] px-5 py-8 lg:px-8 lg:py-11">
     <div className="mb-8 flex flex-col justify-between gap-5 md:flex-row md:items-end">
-      <div><p className="text-xs font-bold uppercase tracking-[.15em] text-[#718078]">Investment ledger</p><h1 className="mt-2 text-[36px] font-semibold tracking-[-.045em] md:text-[46px]">Your portfolios</h1><p className="mt-2 text-sm text-[#738078]">Holdings calculated directly from your transaction history.</p></div>
-      <div className="flex gap-2"><button onClick={() => setShowCreate(true)} className="rounded-xl border border-[#dce2dd] bg-white px-4 py-3 text-sm font-bold hover:border-[#aeb9b1]">New portfolio</button>{selected && <button onClick={() => { setEditing(null); setShowTransaction(true) }} className="flex items-center gap-2 rounded-xl bg-[#d8f768] px-4 py-3 text-sm font-bold text-[#1c2d24] hover:bg-[#c9ed4d]"><Icon className="size-4"><path d="M12 5v14M5 12h14" /></Icon>Add transaction</button>}</div>
+      <div><p className="text-xs font-bold uppercase tracking-[.15em] text-[#718078]">Investment ledger</p><h1 className="mt-2 text-[36px] font-semibold tracking-[-.045em] md:text-[46px]">{section === 'holdings' ? 'Holdings' : 'Transactions'}</h1><p className="mt-2 text-sm text-[#738078]">{section === 'holdings' ? 'Positions calculated directly from your transaction history.' : 'Review and maintain the complete investment ledger.'}</p></div>
+      {section === 'transactions' && selected && <button onClick={() => { setEditing(null); setShowTransaction(true) }} className="flex items-center gap-2 self-start rounded-xl bg-[#d8f768] px-4 py-3 text-sm font-bold text-[#1c2d24] hover:bg-[#c9ed4d] md:self-auto"><Icon className="size-4"><path d="M12 5v14M5 12h14" /></Icon>Add transaction</button>}
     </div>
 
     {error && <div role="alert" className="mb-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>}
 
-    {loading ? <div className="h-72 animate-pulse rounded-[22px] bg-white" /> : portfolios.length === 0 ? <div className="rounded-[22px] border border-dashed border-[#cfd7d1] bg-white py-20 text-center"><h2 className="text-xl font-semibold">Create your first portfolio</h2><p className="mt-2 text-sm text-[#7b867f]">Use a portfolio to group holdings from one account or strategy.</p><button onClick={() => setShowCreate(true)} className="mt-5 rounded-xl bg-[#173c2c] px-5 py-3 text-sm font-bold text-white">Create portfolio</button></div> : <>
-      <section className="mb-5 flex flex-col gap-3 rounded-[20px] border border-[#dfe4df] bg-white p-4 sm:flex-row sm:items-center">
-        <div className="flex min-w-0 flex-1 items-center gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#173c2c] text-[#d8f768]"><Icon><rect x="3" y="7" width="18" height="13" rx="2" /><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></Icon></span><div className="min-w-0"><select value={selectedId} onChange={(event) => { setSelectedId(event.target.value); setPage(0) }} className="max-w-full bg-transparent text-base font-bold outline-none" aria-label="Select portfolio">{portfolios.map((portfolio) => <option key={portfolio.id} value={portfolio.id}>{portfolio.name}</option>)}</select><p className="mt-0.5 truncate text-xs text-[#7b867f]">{selected?.description || `${selected?.currency} portfolio`}</p></div></div>
-        <div className="flex self-start sm:self-auto"><button onClick={() => setShowEdit(true)} className="rounded-lg px-3 py-2 text-xs font-semibold text-[#68746c] hover:bg-[#eef2ee]">Edit</button><button onClick={removePortfolio} className="rounded-lg px-3 py-2 text-xs font-semibold text-[#8b958f] hover:bg-rose-50 hover:text-rose-600">Delete portfolio</button></div>
-      </section>
-
+    {loading ? <div className="h-72 animate-pulse rounded-[22px] bg-white" /> : portfolios.length === 0 ? <div className="rounded-[22px] border border-dashed border-[#cfd7d1] bg-white py-20 text-center"><h2 className="text-xl font-semibold">Create your first portfolio</h2><p className="mt-2 text-sm text-[#7b867f]">Use the + beside the portfolio selector in the top menu.</p></div> : <>
+      {section === 'holdings' && <>
       <section className="mb-5 grid gap-4 md:grid-cols-3">
         <SummaryCard label="Invested cost basis" value={money(totals.costBasis, selected?.currency)} note={`${holdings.length} open ${holdings.length === 1 ? 'position' : 'positions'}`} />
         <SummaryCard label="Realized gain" value={money(totals.realizedGain, selected?.currency)} note="From open positions" positive={totals.realizedGain >= 0} />
@@ -152,15 +125,16 @@ function PortfolioPage({ auth, onNeedAuth, onSelectInstrument, startWithTransact
         <div className="border-b border-[#e5e9e5] px-5 py-5 md:px-6"><h2 className="text-lg font-semibold tracking-[-.02em]">Holdings</h2><p className="mt-1 text-xs text-[#7b867f]">Weighted-average cost from recorded purchases and sales</p></div>
         {detailsLoading && !holdings.length ? <div className="h-44 animate-pulse bg-[#f7f9f7]" /> : holdings.length === 0 ? <EmptyState title="No open positions" text="Add a BUY transaction to begin building this portfolio." /> : <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left"><thead className="bg-[#fafbf9] text-[10px] font-bold uppercase tracking-[.12em] text-[#849088]"><tr><th className="px-6 py-3">Instrument</th><th className="px-4 py-3 text-right">Quantity</th><th className="px-4 py-3 text-right">Average cost</th><th className="px-4 py-3 text-right">Cost basis</th><th className="px-6 py-3 text-right">Realized gain</th></tr></thead><tbody>{holdings.map((holding) => <tr key={holding.symbol} className="border-t border-[#ecefec] hover:bg-[#fafcf9] dark:hover:bg-[#1a2520]"><td className="px-6 py-4"><button onClick={() => onSelectInstrument(holding.symbol)} className="flex items-center gap-3 text-left"><InstrumentMark symbol={holding.symbol} size="small" /><span><strong className="block text-sm">{holding.symbol}</strong><span className="mt-0.5 block text-xs text-[#7b867f]">{holding.name}</span></span></button></td><td className="px-4 py-4 text-right text-sm font-semibold tabular-nums">{quantity(holding.quantity)}</td><td className="px-4 py-4 text-right text-sm tabular-nums">{money(holding.averageCost, holding.currency)}</td><td className="px-4 py-4 text-right text-sm font-semibold tabular-nums">{money(holding.costBasis, holding.currency)}</td><td className={`px-6 py-4 text-right text-sm font-bold tabular-nums ${holding.realizedGain >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{holding.realizedGain >= 0 ? '+' : ''}{money(holding.realizedGain, holding.currency)}</td></tr>)}</tbody></table></div>}
       </section>
+      </>}
 
+      {section === 'transactions' &&
       <section className="overflow-hidden rounded-[22px] border border-[#dfe4df] bg-white">
         <div className="flex flex-col gap-4 border-b border-[#e5e9e5] px-5 py-5 lg:flex-row lg:items-center lg:justify-between lg:px-6"><div><h2 className="text-lg font-semibold tracking-[-.02em]">Transactions</h2><p className="mt-1 text-xs text-[#7b867f]">{totalTransactions} recorded entries</p></div><div className="flex flex-col gap-2 sm:flex-row"><input value={symbolFilter} onChange={(event) => { setSymbolFilter(event.target.value.slice(0, 14)); setPage(0) }} className="rounded-xl border border-[#dfe4df] bg-[#fafbf9] px-3 py-2.5 text-sm uppercase outline-none focus:border-[#779a86]" placeholder="Filter symbol" aria-label="Filter transactions by symbol" /><select value={typeFilter} onChange={(event) => { setTypeFilter(event.target.value as TransactionType | ''); setPage(0) }} className="rounded-xl border border-[#dfe4df] bg-[#fafbf9] px-3 py-2.5 text-sm outline-none" aria-label="Filter transactions by type"><option value="">All types</option>{transactionTypes.map((type) => <option key={type}>{type}</option>)}</select></div></div>
         {detailsLoading ? <div className="h-48 animate-pulse bg-[#f7f9f7]" /> : transactions.length === 0 ? <EmptyState title="No transactions found" text={symbolFilter || typeFilter ? 'Try changing the current filters.' : 'Add your first transaction to create a holding.'} /> : <div><div className="divide-y divide-[#ecefec]">{transactions.map((transaction) => <TransactionRow key={transaction.id} transaction={transaction} onEdit={() => { setEditing(transaction); setShowTransaction(true) }} onDelete={() => removeTransaction(transaction)} />)}</div>{totalPages > 1 && <div className="flex items-center justify-between border-t border-[#e5e9e5] px-4 py-3 text-xs sm:px-5"><button disabled={page === 0} onClick={() => setPage((current) => current - 1)} className="rounded-lg px-3 py-2 font-bold disabled:opacity-35">Previous</button><span className="text-[#7b867f]">{page + 1} / {totalPages}</span><button disabled={page + 1 >= totalPages} onClick={() => setPage((current) => current + 1)} className="rounded-lg px-3 py-2 font-bold disabled:opacity-35">Next</button></div>}</div>}
       </section>
+      }
     </>}
 
-    {showCreate && <CreatePortfolioModal auth={auth} onClose={() => { if (portfolios.length) setShowCreate(false) }} onCreated={createdPortfolio} />}
-    {showEdit && selected && <EditPortfolioModal auth={auth} portfolio={selected} onClose={() => setShowEdit(false)} onUpdated={(updated) => { setPortfolios((current) => current.map((item) => item.id === updated.id ? updated : item)); setShowEdit(false) }} />}
     {showTransaction && selected && <TransactionModal auth={auth} portfolio={selected} transaction={editing} onClose={() => { setShowTransaction(false); setEditing(null) }} onSaved={async () => { setShowTransaction(false); setEditing(null); await loadDetails() }} />}
   </main>
 }
@@ -185,25 +159,6 @@ function EmptyState({ title, text }: { title: string, text: string }) {
 
 function Modal({ title, description, onClose, children }: { title: string, description: string, onClose: () => void, children: ReactNode }) {
   return <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-[#0a1711]/55 p-4 backdrop-blur-sm" onMouseDown={(event) => { if (event.currentTarget === event.target) onClose() }}><section role="dialog" aria-modal="true" className="my-5 w-full max-w-lg rounded-[24px] bg-white p-6 shadow-2xl sm:p-7"><div className="flex items-start justify-between gap-4"><div><h2 className="text-xl font-semibold tracking-[-.03em]">{title}</h2><p className="mt-1 text-sm text-[#77837b]">{description}</p></div><button onClick={onClose} className="grid size-9 place-items-center rounded-xl text-[#6f7a73] hover:bg-[#f1f3f1]" aria-label="Close"><Icon><path d="M6 6l12 12M18 6 6 18" /></Icon></button></div>{children}</section></div>
-}
-
-function CreatePortfolioModal({ auth, onClose, onCreated }: { auth: AuthResponse, onClose: () => void, onCreated: (portfolio: Portfolio) => void }) {
-  const [name, setName] = useState('')
-  const [currency, setCurrency] = useState('USD')
-  const [description, setDescription] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
-  const submit = async (event: FormEvent) => { event.preventDefault(); setSaving(true); setError(''); try { onCreated(await createPortfolio(auth, { name, currency, description })) } catch (reason) { setError(apiErrorMessage(reason, 'Unable to create portfolio.')) } finally { setSaving(false) } }
-  return <Modal title="Create a portfolio" description="Group transactions from one account or strategy." onClose={onClose}><form onSubmit={submit} className="mt-6 space-y-4"><Field label="Portfolio name"><input required maxLength={100} value={name} onChange={(event) => setName(event.target.value)} className={inputClass} placeholder="Main Brokerage" autoFocus /></Field><div className="grid gap-4 sm:grid-cols-[120px_1fr]"><Field label="Currency"><input required pattern="[A-Za-z]{3}" maxLength={3} value={currency} onChange={(event) => setCurrency(event.target.value.toUpperCase())} className={inputClass} /></Field><Field label="Description"><input maxLength={500} value={description} onChange={(event) => setDescription(event.target.value)} className={inputClass} placeholder="Long-term investments" /></Field></div>{error && <ErrorMessage>{error}</ErrorMessage>}<button disabled={saving} className={submitClass}>{saving ? 'Creating…' : 'Create portfolio'}</button></form></Modal>
-}
-
-function EditPortfolioModal({ auth, portfolio, onClose, onUpdated }: { auth: AuthResponse, portfolio: Portfolio, onClose: () => void, onUpdated: (portfolio: Portfolio) => void }) {
-  const [name, setName] = useState(portfolio.name)
-  const [description, setDescription] = useState(portfolio.description ?? '')
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
-  const submit = async (event: FormEvent) => { event.preventDefault(); setSaving(true); setError(''); try { onUpdated(await updatePortfolio(auth, portfolio.id, { name, description })) } catch (reason) { setError(apiErrorMessage(reason, 'Unable to update portfolio.')) } finally { setSaving(false) } }
-  return <Modal title="Edit portfolio" description={`Base currency: ${portfolio.currency}`} onClose={onClose}><form onSubmit={submit} className="mt-6 space-y-4"><Field label="Portfolio name"><input required maxLength={100} value={name} onChange={(event) => setName(event.target.value)} className={inputClass} autoFocus /></Field><Field label="Description"><textarea maxLength={500} rows={3} value={description} onChange={(event) => setDescription(event.target.value)} className={inputClass} placeholder="Optional description" /></Field>{error && <ErrorMessage>{error}</ErrorMessage>}<button disabled={saving} className={submitClass}>{saving ? 'Saving…' : 'Save changes'}</button></form></Modal>
 }
 
 function TransactionModal({ auth, portfolio, transaction, onClose, onSaved }: { auth: AuthResponse, portfolio: Portfolio, transaction: PortfolioTransaction | null, onClose: () => void, onSaved: () => void | Promise<void> }) {
