@@ -27,3 +27,10 @@ export type BulkMarketDataSyncResult = {
   instrumentsAvailable: number
   datasets: MarketDataDatasetStatus[]
 }
+
+export type ClassificationSyncResult = {
+  attempted: number
+  succeeded: number
+  failed: number
+  remaining: number
+}

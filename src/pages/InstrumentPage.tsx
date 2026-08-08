@@ -237,7 +237,7 @@ function InstrumentPage({ symbol, auth, onBack, onNeedAuth, onWatchChange, watch
           {watchError && <p role="alert" className="max-w-xs text-right text-xs text-rose-600">{watchError}</p>}
         </div>
       </div>
-      <div className="mt-7 grid gap-3 border-t border-[#e7ebe7] pt-6 sm:grid-cols-3"><Detail label="Exchange" value={instrument.exchange} /><Detail label="Category" value={instrument.category || 'Not classified'} /><Detail label="SEC CIK" value={instrument.cik || 'Not available'} /></div>
+      <div className="mt-7 grid gap-3 border-t border-[#e7ebe7] pt-6 sm:grid-cols-3"><Detail label="Exchange" value={instrument.exchange} /><Detail label="Sector" value={instrument.instrumentType === 'ETF' ? 'Funds' : instrument.sector || 'Not classified'} /><Detail label="SEC CIK" value={instrument.cik || 'Not available'} /></div>
     </section>
 
     <section className="mt-6 overflow-hidden rounded-[22px] border border-[#dfe4df] bg-white">

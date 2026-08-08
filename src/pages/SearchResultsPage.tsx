@@ -62,7 +62,7 @@ function SearchResultsPage({ query, onSearch, onSelect }: SearchResultsPageProps
       {results.map((instrument) => <button key={instrument.symbol} onClick={() => onSelect(instrument.symbol)} className="flex w-full items-center gap-4 border-b border-[#e9ece9] px-5 py-5 text-left transition last:border-0 hover:bg-[#f7faf7] sm:px-6">
         <InstrumentMark symbol={instrument.symbol} />
         <span className="min-w-0 flex-1"><span className="flex flex-wrap items-center gap-2"><strong>{instrument.symbol}</strong><span className="rounded-md bg-[#edf1ed] px-2 py-1 text-[9px] font-bold tracking-wide text-[#68746c]">{instrument.instrumentType}</span></span><span className="mt-1 block truncate text-sm text-[#758078]">{instrument.name}</span></span>
-        <span className="hidden text-right sm:block"><span className="block text-sm font-semibold">{instrument.exchange}</span><span className="mt-1 block text-xs text-[#87918b]">{instrument.category}</span></span>
+        <span className="hidden text-right sm:block"><span className="block text-sm font-semibold">{instrument.exchange}</span><span className="mt-1 block text-xs text-[#87918b]">{instrument.instrumentType === 'ETF' ? 'Funds' : instrument.sector || 'Not classified'}</span></span>
         <svg className="ml-1 size-5 shrink-0 text-[#8b968f]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="m9 18 6-6-6-6" /></svg>
       </button>)}
     </div>}

@@ -2,8 +2,12 @@ export type Instrument = {
   symbol: string
   name: string
   exchange: string
-  category: string
   instrumentType: 'STOCK' | 'ETF'
+  sector?: string | null
+  industry?: string | null
+  sicCode?: string | null
+  sicDescription?: string | null
+  classificationSource?: string | null
   cik?: string | null
   price?: number
   change?: number

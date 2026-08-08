@@ -82,12 +82,12 @@ function Icon({ name, className = 'size-5' }: { name: IconName, className?: stri
 }
 
 const fallbackInstruments: Instrument[] = [
-  { symbol: 'NVDA', name: 'NVIDIA Corporation', exchange: 'NASDAQ', category: 'Semiconductors', instrumentType: 'STOCK', price: 182.41, change: 2.84 },
-  { symbol: 'AAPL', name: 'Apple Inc.', exchange: 'NASDAQ', category: 'Technology', instrumentType: 'STOCK', price: 219.57, change: 1.12 },
-  { symbol: 'MSFT', name: 'Microsoft Corporation', exchange: 'NASDAQ', category: 'Technology', instrumentType: 'STOCK', price: 514.36, change: -0.38 },
-  { symbol: 'AMZN', name: 'Amazon.com, Inc.', exchange: 'NASDAQ', category: 'Consumer Cyclical', instrumentType: 'STOCK', price: 234.12, change: 0.67 },
-  { symbol: 'META', name: 'Meta Platforms, Inc.', exchange: 'NASDAQ', category: 'Communication', instrumentType: 'STOCK', price: 781.43, change: 1.96 },
-  { symbol: 'VOO', name: 'Vanguard S&P 500 ETF', exchange: 'NYSE', category: 'Large Blend', instrumentType: 'ETF', price: 603.91, change: 0.42 },
+  { symbol: 'NVDA', name: 'NVIDIA Corporation', exchange: 'NASDAQ', sector: 'Semiconductors', instrumentType: 'STOCK', price: 182.41, change: 2.84 },
+  { symbol: 'AAPL', name: 'Apple Inc.', exchange: 'NASDAQ', sector: 'Technology', instrumentType: 'STOCK', price: 219.57, change: 1.12 },
+  { symbol: 'MSFT', name: 'Microsoft Corporation', exchange: 'NASDAQ', sector: 'Technology', instrumentType: 'STOCK', price: 514.36, change: -0.38 },
+  { symbol: 'AMZN', name: 'Amazon.com, Inc.', exchange: 'NASDAQ', sector: 'Consumer Cyclical', instrumentType: 'STOCK', price: 234.12, change: 0.67 },
+  { symbol: 'META', name: 'Meta Platforms, Inc.', exchange: 'NASDAQ', sector: 'Communication', instrumentType: 'STOCK', price: 781.43, change: 1.96 },
+  { symbol: 'VOO', name: 'Vanguard S&P 500 ETF', exchange: 'NYSE', instrumentType: 'ETF', price: 603.91, change: 0.42 },
 ]
 
 const sparkLines = [

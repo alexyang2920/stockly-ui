@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getMarketDataStatus, syncMarketData } from '../api/admin'
+import { getMarketDataStatus, syncCompanyClassifications, syncMarketData } from '../api/admin'
 import { apiErrorMessage } from '../api/client'
 import type { MarketDataDatasetStatus } from '../types/admin'
 import type { AuthResponse } from '../types/auth'
@@ -22,6 +22,7 @@ function previousWeekday() {
 }
 
 function AdminPage({ auth, onNeedAuth }: { auth: AuthResponse | null, onNeedAuth: () => void }) {
+  const [tab, setTab] = useState<'market' | 'instruments'>('market')
   const [statuses, setStatuses] = useState<MarketDataDatasetStatus[]>([])
   const [selected, setSelected] = useState({ QUOTES: true, DIVIDENDS: true, SPLITS: true })
   const [marketDate, setMarketDate] = useState(previousWeekday)
@@ -30,6 +31,9 @@ function AdminPage({ auth, onNeedAuth }: { auth: AuthResponse | null, onNeedAuth
   const [syncing, setSyncing] = useState(false)
   const [error, setError] = useState('')
   const [summary, setSummary] = useState('')
+  const [classificationLimit, setClassificationLimit] = useState(100)
+  const [classificationSyncing, setClassificationSyncing] = useState(false)
+  const [classificationSummary, setClassificationSummary] = useState('')
 
   useEffect(() => {
     if (!auth) return
@@ -64,12 +68,24 @@ function AdminPage({ auth, onNeedAuth }: { auth: AuthResponse | null, onNeedAuth
 
   const dividendStatus = statuses.find((item) => item.dataset === 'DIVIDENDS')
 
+  const syncClassifications = async () => {
+    setClassificationSyncing(true); setError(''); setClassificationSummary('')
+    try {
+      const result = await syncCompanyClassifications(auth, classificationLimit)
+      setClassificationSummary(`Attempted ${result.attempted.toLocaleString()} companies: ${result.succeeded.toLocaleString()} updated, ${result.failed.toLocaleString()} failed, and ${result.remaining.toLocaleString()} remain.`)
+    } catch (reason) { setError(apiErrorMessage(reason, 'Company-classification synchronization failed.')) }
+    finally { setClassificationSyncing(false) }
+  }
+
   return <main className="mx-auto max-w-[1180px] px-5 py-8 lg:px-8 lg:py-11">
-    <div className="mb-8"><p className="text-xs font-bold uppercase tracking-[.15em] text-[#718078]">Administration</p><h1 className="mt-2 text-[38px] font-semibold tracking-[-.045em] md:text-[48px]">Market data</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-[#738078]">Synchronize market-wide data from Massive. The server filters responses to instruments available in Stockly and preserves the last successful dataset when a provider request fails.</p></div>
+    <div className="mb-6"><p className="text-xs font-bold uppercase tracking-[.15em] text-[#718078]">Stockly operations</p><h1 className="mt-2 text-[38px] font-semibold tracking-[-.045em] md:text-[48px]">Administration</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-[#738078]">Manage external datasets and maintain the instrument catalog.</p></div>
+    <nav className="mb-7 flex gap-1 rounded-2xl border border-[#dfe4df] bg-white p-1.5" aria-label="Administration sections"><button onClick={() => { setTab('market'); setError('') }} className={`flex-1 rounded-xl px-4 py-3 text-sm font-bold transition sm:flex-none ${tab === 'market' ? 'bg-[#173c2c] text-white' : 'text-[#6e7a73] hover:bg-[#f3f5f2]'}`}>Market Data</button><button onClick={() => { setTab('instruments'); setError('') }} className={`flex-1 rounded-xl px-4 py-3 text-sm font-bold transition sm:flex-none ${tab === 'instruments' ? 'bg-[#173c2c] text-white' : 'text-[#6e7a73] hover:bg-[#f3f5f2]'}`}>Instruments</button><span className="hidden rounded-xl px-4 py-3 text-sm font-bold text-[#a0aaa4] sm:block" title="Coming later">Financial Data</span></nav>
 
     {error && <div role="alert" className="mb-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>}
-    {summary && <div className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">{summary}</div>}
+    {tab === 'market' && summary && <div className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">{summary}</div>}
+    {tab === 'instruments' && classificationSummary && <div className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">{classificationSummary}</div>}
 
+    {tab === 'market' && <>
     <section className="grid gap-4 md:grid-cols-3">
       {(['QUOTES', 'DIVIDENDS', 'SPLITS'] as const).map((dataset) => {
         const status = statuses.find((item) => item.dataset === dataset)
@@ -92,7 +108,11 @@ function AdminPage({ auth, onNeedAuth }: { auth: AuthResponse | null, onNeedAuth
       <p className="mt-3 text-xs text-[#7a857e]">A saved cursor always shows Continue. Without a cursor, Restart begins from the optional corporate-actions date.</p>
     </section>
 
-    <section className="mt-6 rounded-[22px] border border-[#dfe4df] bg-[#eef4ef] p-5 md:p-6"><h2 className="font-semibold">Authorization design</h2><p className="mt-1 text-sm leading-6 text-[#69756d]">These operations are isolated under <code>/admin/**</code> and currently require any authenticated account. When roles are introduced, this route can be restricted to an ADMIN authority without changing the page or synchronization contracts.</p></section>
+    </>}
+
+    {tab === 'instruments' && <section className="rounded-[22px] border border-[#dfe4df] bg-white p-5 md:p-7"><div className="flex items-start gap-4"><span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[#eaf1ec] text-[#285d43]"><svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 5h16v14H4zM8 9h8M8 13h5" /></svg></span><div><h2 className="text-xl font-semibold tracking-[-.025em]">Company classifications</h2><p className="mt-1 max-w-2xl text-sm leading-6 text-[#7a857e]">Fetch pending company SIC classifications from SEC data, then derive sector and industry information used by portfolio allocation. ETFs are skipped and remain classified as Funds.</p></div></div><div className="mt-7 max-w-sm"><label className="text-sm font-semibold">Batch size <span className="font-normal text-[#87918b]">(1–500)</span><input type="number" min="1" max="500" value={classificationLimit} onChange={(event) => setClassificationLimit(Math.min(500, Math.max(1, Number(event.target.value) || 1)))} className="mt-2 w-full rounded-xl border border-[#dce2dd] bg-white px-3.5 py-3 font-normal outline-none focus:border-[#789887]" /></label><button onClick={syncClassifications} disabled={classificationSyncing} className="mt-4 w-full rounded-xl bg-[#173c2c] px-5 py-3.5 text-sm font-bold text-white hover:bg-[#205139] disabled:cursor-wait disabled:opacity-60">{classificationSyncing ? 'Synchronizing classifications…' : 'Sync company classifications'}</button></div><div className="mt-6 rounded-xl bg-[#f7f9f7] p-4 text-xs leading-5 text-[#69756d]">Only stocks with a CIK and no existing classification are selected. Run additional batches until the reported remaining count reaches zero.</div></section>}
+
+    <section className="mt-6 rounded-[22px] border border-[#dfe4df] bg-[#eef4ef] p-5 md:p-6"><h2 className="font-semibold">Authorization design</h2><p className="mt-1 text-sm leading-6 text-[#69756d]">Administration operations currently require an authenticated account. When roles are introduced, these routes can be restricted to an ADMIN authority without changing the page contracts.</p></section>
   </main>
 }
 
