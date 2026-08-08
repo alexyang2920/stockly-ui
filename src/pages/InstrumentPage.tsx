@@ -23,13 +23,46 @@ type InstrumentPageProps = {
 }
 
 const metricLabels: Record<string, string> = {
-  REVENUE: 'Revenue', COST_OF_REVENUE: 'Cost of revenue', GROSS_PROFIT: 'Gross profit', OPERATING_EXPENSES: 'Operating expenses', OPERATING_INCOME: 'Operating income', INTEREST_EXPENSE: 'Interest expense', INCOME_BEFORE_TAX: 'Income before tax', INCOME_TAX_EXPENSE: 'Income tax expense', NET_INCOME: 'Net income', DILUTED_EPS: 'Diluted EPS', CASH_AND_EQUIVALENTS: 'Cash & equivalents', ACCOUNTS_RECEIVABLE: 'Accounts receivable', INVENTORY: 'Inventory', CURRENT_ASSETS: 'Current assets', TOTAL_ASSETS: 'Total assets', GOODWILL: 'Goodwill', CURRENT_LIABILITIES: 'Current liabilities', TOTAL_LIABILITIES: 'Total liabilities', LONG_TERM_DEBT: 'Long-term debt', SHAREHOLDERS_EQUITY: 'Shareholders’ equity', SHARES_OUTSTANDING: 'Shares outstanding', OPERATING_CASH_FLOW: 'Operating cash flow', CAPITAL_EXPENDITURES: 'Capital expenditures', INVESTING_CASH_FLOW: 'Investing cash flow', FINANCING_CASH_FLOW: 'Financing cash flow', DIVIDENDS_PAID: 'Dividends paid', SHARE_REPURCHASES: 'Share repurchases',
+  REVENUE: 'Revenue', COST_OF_REVENUE: 'Cost of revenue', GROSS_PROFIT: 'Gross profit', OPERATING_EXPENSES: 'Operating expenses', OPERATING_INCOME: 'Operating income', INTEREST_EXPENSE: 'Interest expense', INCOME_BEFORE_TAX: 'Income before tax', INCOME_TAX_EXPENSE: 'Income tax expense', NET_INCOME: 'Net income', DILUTED_EPS: 'Diluted EPS', CASH_AND_EQUIVALENTS: 'Cash & equivalents', ACCOUNTS_RECEIVABLE: 'Accounts receivable', INVENTORY: 'Inventory', CURRENT_ASSETS: 'Current assets', TOTAL_ASSETS: 'Total assets', GOODWILL: 'Goodwill', CURRENT_LIABILITIES: 'Current liabilities', TOTAL_LIABILITIES: 'Total liabilities', CURRENT_DEBT: 'Current debt', LONG_TERM_DEBT: 'Long-term debt', TOTAL_DEBT: 'Total debt', SHAREHOLDERS_EQUITY: 'Book value (shareholders’ equity)', SHARES_OUTSTANDING: 'Shares outstanding', OPERATING_CASH_FLOW: 'Operating cash flow', CAPITAL_EXPENDITURES: 'Capital expenditures', FREE_CASH_FLOW: 'Free cash flow', INVESTING_CASH_FLOW: 'Investing cash flow', FINANCING_CASH_FLOW: 'Financing cash flow', DIVIDENDS_PAID: 'Dividends paid', SHARE_REPURCHASES: 'Share repurchases',
+}
+
+const metricDescriptions: Record<string, string> = {
+  REVENUE: 'Sales generated from the company’s primary business activities before costs and expenses.',
+  COST_OF_REVENUE: 'Direct costs required to produce and deliver the goods or services sold.',
+  GROSS_PROFIT: 'Revenue remaining after subtracting cost of revenue.',
+  OPERATING_EXPENSES: 'Costs of running the business outside the direct cost of producing its goods or services.',
+  OPERATING_INCOME: 'Profit from core operations after cost of revenue and operating expenses.',
+  INTEREST_EXPENSE: 'Cost incurred on borrowed money during the reporting period.',
+  INCOME_BEFORE_TAX: 'Profit from continuing operations before income taxes are applied.',
+  INCOME_TAX_EXPENSE: 'Income taxes recognized for the reporting period, including current and deferred amounts.',
+  NET_INCOME: 'Profit remaining after operating costs, interest, taxes, and other expenses.',
+  DILUTED_EPS: 'Net income attributable to each share after including the effect of potentially dilutive securities.',
+  CASH_AND_EQUIVALENTS: 'Highly liquid cash and short-term investments available at the period end.',
+  ACCOUNTS_RECEIVABLE: 'Amounts customers owe the company for goods or services already delivered.',
+  INVENTORY: 'Value of goods and materials held for production or sale.',
+  CURRENT_ASSETS: 'Assets expected to be converted to cash, sold, or used within roughly one year.',
+  TOTAL_ASSETS: 'Total economic resources controlled by the company at the period end.',
+  GOODWILL: 'Acquisition value recorded above the identifiable net assets of acquired businesses.',
+  CURRENT_LIABILITIES: 'Obligations expected to be settled within roughly one year.',
+  TOTAL_LIABILITIES: 'All financial obligations owed by the company at the period end.',
+  CURRENT_DEBT: 'Interest-bearing debt due within roughly one year, based on the company’s available SEC debt disclosure.',
+  LONG_TERM_DEBT: 'Borrowings and debt obligations generally due more than one year from the period end.',
+  TOTAL_DEBT: 'Combined current and noncurrent interest-bearing debt. Stockly uses a reported SEC total when available, otherwise it adds current and long-term debt.',
+  SHAREHOLDERS_EQUITY: 'The company’s total book value: the residual value attributable to shareholders after subtracting liabilities from assets.',
+  SHARES_OUTSTANDING: 'Common shares issued and held by investors at the reporting date.',
+  OPERATING_CASH_FLOW: 'Cash generated or consumed by the company’s normal business operations.',
+  CAPITAL_EXPENDITURES: 'Cash spent to acquire or improve property, equipment, and other long-lived operating assets.',
+  FREE_CASH_FLOW: 'Cash remaining after capital expenditures, calculated as operating cash flow minus capital expenditures.',
+  INVESTING_CASH_FLOW: 'Net cash used for or generated by investments and long-term asset transactions.',
+  FINANCING_CASH_FLOW: 'Net cash from debt, equity, dividends, repurchases, and other financing activities.',
+  DIVIDENDS_PAID: 'Cash distributed to shareholders as dividends during the reporting period.',
+  SHARE_REPURCHASES: 'Cash used by the company to buy back its own common shares.',
 }
 
 const statementGroups = [
   { key: 'INCOME_STATEMENT', title: 'Income statement', description: 'Revenue, profitability, and earnings', metrics: ['REVENUE', 'COST_OF_REVENUE', 'GROSS_PROFIT', 'OPERATING_EXPENSES', 'OPERATING_INCOME', 'INTEREST_EXPENSE', 'INCOME_BEFORE_TAX', 'INCOME_TAX_EXPENSE', 'NET_INCOME', 'DILUTED_EPS'] },
-  { key: 'BALANCE_SHEET', title: 'Balance sheet', description: 'Assets, liabilities, and shareholders’ equity', metrics: ['CASH_AND_EQUIVALENTS', 'ACCOUNTS_RECEIVABLE', 'INVENTORY', 'CURRENT_ASSETS', 'TOTAL_ASSETS', 'GOODWILL', 'CURRENT_LIABILITIES', 'TOTAL_LIABILITIES', 'LONG_TERM_DEBT', 'SHAREHOLDERS_EQUITY', 'SHARES_OUTSTANDING'] },
-  { key: 'CASH_FLOW', title: 'Cash flow statement', description: 'Operating cash generation and capital allocation', metrics: ['OPERATING_CASH_FLOW', 'CAPITAL_EXPENDITURES', 'INVESTING_CASH_FLOW', 'FINANCING_CASH_FLOW', 'DIVIDENDS_PAID', 'SHARE_REPURCHASES'] },
+  { key: 'BALANCE_SHEET', title: 'Balance sheet', description: 'Assets, liabilities, debt, and book value', metrics: ['CASH_AND_EQUIVALENTS', 'ACCOUNTS_RECEIVABLE', 'INVENTORY', 'CURRENT_ASSETS', 'GOODWILL', 'TOTAL_ASSETS', 'CURRENT_LIABILITIES', 'TOTAL_LIABILITIES', 'CURRENT_DEBT', 'LONG_TERM_DEBT', 'TOTAL_DEBT', 'SHAREHOLDERS_EQUITY', 'SHARES_OUTSTANDING'] },
+  { key: 'CASH_FLOW', title: 'Cash flow statement', description: 'Operating cash generation and capital allocation', metrics: ['OPERATING_CASH_FLOW', 'CAPITAL_EXPENDITURES', 'FREE_CASH_FLOW', 'INVESTING_CASH_FLOW', 'FINANCING_CASH_FLOW', 'DIVIDENDS_PAID', 'SHARE_REPURCHASES'] },
 ] as const
 
 function humanize(value: string) {
@@ -161,6 +194,24 @@ function InstrumentPage({ symbol, auth, onBack, onNeedAuth, onWatchChange, watch
       const existing = metricFacts.get(periodKey)
       if (!existing || fact.filedAt > existing.filedAt) metricFacts.set(periodKey, fact)
       factMap.set(fact.metric, metricFacts)
+    }
+
+    const operatingCashFlow = factMap.get('OPERATING_CASH_FLOW')
+    const capitalExpenditures = factMap.get('CAPITAL_EXPENDITURES')
+    if (operatingCashFlow && capitalExpenditures) {
+      const freeCashFlow = new Map<string, FinancialFact>()
+      operatingCashFlow.forEach((operatingFact, periodKey) => {
+        const capitalFact = capitalExpenditures.get(periodKey)
+        if (!capitalFact) return
+        freeCashFlow.set(periodKey, {
+          ...operatingFact,
+          metric: 'FREE_CASH_FLOW',
+          statementType: 'CASH_FLOW',
+          value: operatingFact.value - capitalFact.value,
+          filedAt: operatingFact.filedAt > capitalFact.filedAt ? operatingFact.filedAt : capitalFact.filedAt,
+        })
+      })
+      if (freeCashFlow.size > 0) factMap.set('FREE_CASH_FLOW', freeCashFlow)
     }
 
     const allPeriods = [...periodMap.values()].sort((left, right) => right.periodEnd.localeCompare(left.periodEnd))
@@ -383,10 +434,12 @@ function Segmented({ values, active, onChange }: { values: string[], active: str
 }
 
 function FinancialStatementTable({ title, description, metrics, periods, factMap }: { title: string, description: string, metrics: string[], periods: FinancialPeriodColumn[], factMap: Map<string, Map<string, FinancialFact>> }) {
-  return <section className="border-b border-[#e5e9e5] last:border-b-0"><div className="bg-[#f7f9f7] px-7 py-4"><h3 className="text-sm font-bold tracking-[-.01em]">{title}</h3><p className="mt-1 text-xs text-[#7a857e]">{description}</p></div><div className="overflow-x-auto"><table className="text-left" style={{ minWidth: `${240 + periods.length * 132}px`, width: '100%' }}><thead className="bg-[#fafbf9] text-[10px] uppercase tracking-[.1em] text-[#849088]"><tr><th className="sticky left-0 z-10 min-w-60 border-r border-[#e4e8e4] bg-[#fafbf9] px-7 py-3 font-bold">Metric</th>{periods.map((item) => <th key={item.key} className="min-w-33 px-4 py-3 text-right font-bold"><span className="block text-[#59675f]">{item.label}</span><span className="mt-1 block text-[9px] font-medium normal-case tracking-normal text-[#9aa39d]">{item.periodEnd}</span></th>)}</tr></thead><tbody>{metrics.map((metric, rowIndex) => <tr key={metric} className="border-t border-[#ecefec] hover:bg-[#fafcf9] dark:hover:bg-[#1a2520]"><FinancialMetricCell label={metricLabels[metric] ?? humanize(metric)} periods={periods} factsByPeriod={factMap.get(metric)} rowIndex={rowIndex} rowCount={metrics.length} />{periods.map((item) => { const fact = factMap.get(metric)?.get(item.key); return <td key={item.key} className="px-4 py-4 text-right text-sm font-bold tabular-nums whitespace-nowrap">{fact ? formatFact(fact.value, fact.unit) : <span className="font-normal text-[#b0b7b2]">—</span>}</td> })}</tr>)}</tbody></table></div></section>
+  return <section className="border-b border-[#e5e9e5] last:border-b-0"><div className="bg-[#f7f9f7] px-7 py-4"><h3 className="text-sm font-bold tracking-[-.01em]">{title}</h3><p className="mt-1 text-xs text-[#7a857e]">{description}</p></div><div className="overflow-x-auto"><table className="text-left" style={{ minWidth: `${240 + periods.length * 132}px`, width: '100%' }}><thead className="bg-[#fafbf9] text-[10px] uppercase tracking-[.1em] text-[#849088]"><tr><th className="sticky left-0 z-10 min-w-60 border-r border-[#e4e8e4] bg-[#fafbf9] px-7 py-3 font-bold">Metric</th>{periods.map((item) => <th key={item.key} className="min-w-33 px-4 py-3 text-right font-bold"><span className="block text-[#59675f]">{item.label}</span><span className="mt-1 block text-[9px] font-medium normal-case tracking-normal text-[#9aa39d]">{item.periodEnd}</span></th>)}</tr></thead><tbody>{metrics.map((metric, rowIndex) => <tr key={metric} className="border-t border-[#ecefec] hover:bg-[#fafcf9] dark:hover:bg-[#1a2520]"><FinancialMetricCell label={metricLabels[metric] ?? humanize(metric)} description={metricDescriptions[metric] ?? `A reported value for ${humanize(metric).toLowerCase()} from the company’s SEC filing.`} periods={periods} factsByPeriod={factMap.get(metric)} rowIndex={rowIndex} rowCount={metrics.length} />{periods.map((item) => { const fact = factMap.get(metric)?.get(item.key); return <td key={item.key} className="px-4 py-4 text-right text-sm font-bold tabular-nums whitespace-nowrap">{fact ? formatFact(fact.value, fact.unit) : <span className="font-normal text-[#b0b7b2]">—</span>}</td> })}</tr>)}</tbody></table></div></section>
 }
 
-function FinancialMetricCell({ label, periods, factsByPeriod, rowIndex, rowCount }: { label: string, periods: FinancialPeriodColumn[], factsByPeriod?: Map<string, FinancialFact>, rowIndex: number, rowCount: number }) {
+function FinancialMetricCell({ label, description, periods, factsByPeriod, rowIndex, rowCount }: { label: string, description: string, periods: FinancialPeriodColumn[], factsByPeriod?: Map<string, FinancialFact>, rowIndex: number, rowCount: number }) {
+  const [trendOpen, setTrendOpen] = useState(false)
+  const [hoveredBar, setHoveredBar] = useState<number | null>(null)
   const available = periods.flatMap((item) => {
     const fact = factsByPeriod?.get(item.key)
     return fact ? [{ period: item, fact }] : []
@@ -396,7 +449,8 @@ function FinancialMetricCell({ label, periods, factsByPeriod, rowIndex, rowCount
   const change = latest && previous ? latest.fact.value - previous.fact.value : null
   const percentChange = change !== null && previous.fact.value !== 0 ? change / Math.abs(previous.fact.value) * 100 : null
   const positive = change === null || change >= 0
-  const chartValues = [...available].reverse().map((item) => item.fact.value)
+  const chartItems = [...available].reverse()
+  const chartValues = chartItems.map((item) => item.fact.value)
   const minimum = Math.min(0, ...chartValues)
   const maximum = Math.max(0, ...chartValues)
   const range = maximum - minimum || 1
@@ -407,14 +461,17 @@ function FinancialMetricCell({ label, periods, factsByPeriod, rowIndex, rowCount
   const chartStart = (180 - chartWidth) / 2
   const popupPosition = rowIndex < 3 ? 'top-0' : rowIndex >= rowCount - 3 ? 'bottom-0' : 'top-1/2 -translate-y-1/2'
 
-  return <th className="group sticky left-0 z-20 border-r border-[#e4e8e4] bg-white px-7 py-4 text-sm font-semibold whitespace-nowrap dark:bg-[#141d19] dark:text-[#e8eee9]">
-    <button className="flex items-center gap-2 text-left outline-none" aria-label={`Show trend for ${label}`}>
+  return <th onMouseLeave={() => setTrendOpen(false)} className="group sticky left-0 z-20 border-r border-[#e4e8e4] bg-white px-7 py-4 text-sm font-semibold whitespace-nowrap dark:bg-[#141d19] dark:text-[#e8eee9]">
+    <span className="flex w-full items-center justify-between gap-4 text-left">
       <span>{label}</span>
-      <svg className="size-3.5 text-[#718078] opacity-45 transition group-hover:opacity-100 group-focus-within:opacity-100" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m3 17 6-6 4 4 8-9" /><path d="M15 6h6v6" /></svg>
-    </button>
-    <span className={`pointer-events-none absolute left-[calc(100%-12px)] z-40 hidden w-68 rounded-2xl border border-[#dce3dd] bg-white p-4 text-left text-[#15231d] whitespace-normal shadow-[0_16px_45px_rgba(20,38,29,.16)] group-hover:block group-focus-within:block dark:border-[#35463d] dark:bg-[#18231e] dark:text-[#e8eee9] dark:shadow-[0_18px_50px_rgba(0,0,0,.5)] ${popupPosition}`}>
+      <button type="button" onClick={() => setTrendOpen((open) => !open)} className="-m-2 grid size-8 shrink-0 place-items-center rounded-lg outline-none transition hover:bg-[#eef2ee] focus-visible:ring-2 focus-visible:ring-[#789887] dark:hover:bg-[#203028]" aria-label={`${trendOpen ? 'Hide' : 'Show'} trend and explanation for ${label}`} aria-expanded={trendOpen}>
+      <svg className={`size-3.5 shrink-0 text-[#718078] transition ${trendOpen ? 'opacity-100' : 'opacity-45 group-hover:opacity-100'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m3 17 6-6 4 4 8-9" /><path d="M15 6h6v6" /></svg>
+      </button>
+    </span>
+    <span className={`absolute left-[calc(100%-12px)] z-40 w-68 rounded-2xl border border-[#dce3dd] bg-white p-4 text-left text-[#15231d] whitespace-normal shadow-[0_16px_45px_rgba(20,38,29,.16)] dark:border-[#35463d] dark:bg-[#18231e] dark:text-[#e8eee9] dark:shadow-[0_18px_50px_rgba(0,0,0,.5)] ${trendOpen ? 'block' : 'hidden'} ${popupPosition}`}>
       <span className="flex items-start justify-between gap-3"><span><span className="block text-[11px] font-bold uppercase tracking-[.1em] text-[#7c8780]">{label} trend</span>{latest && <span className="mt-1 block text-xs font-normal text-[#929b95]">{available.length} reported periods</span>}</span>{latest && <span className={`rounded-md px-2 py-1 text-xs font-bold ${positive ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-600'}`}>{percentChange === null ? '—' : `${positive ? '+' : ''}${percentChange.toFixed(1)}%`}</span>}</span>
-      {chartValues.length > 1 ? <svg viewBox="0 0 180 56" className={`mt-3 h-14 w-full ${positive ? 'text-emerald-500' : 'text-rose-500'}`} preserveAspectRatio="none"><line className="stroke-[#dfe5e0] dark:stroke-[#405148]" x1="0" y1={baseline} x2="180" y2={baseline} strokeWidth="1" />{chartValues.map((value, index) => { const height = Math.max(Math.abs(value) / range * 40, 1); const y = value >= 0 ? baseline - height : baseline; return <rect key={`${index}-${value}`} x={chartStart + index * (barWidth + gap)} y={y} width={barWidth} height={height} rx="2" fill="currentColor" opacity={index === chartValues.length - 1 ? 1 : .48 + index / chartValues.length * .35} /> })}</svg> : <span className="mt-4 block rounded-xl bg-[#f5f7f5] px-3 py-4 text-center text-xs font-normal text-[#7d8881]">More periods are needed to calculate a trend.</span>}
+      <span className="mt-3 block border-t border-[#e7ebe7] pt-3 text-xs font-normal leading-5 text-[#65736b] dark:border-[#35463d] dark:text-[#aab7b0]">{description}</span>
+      {chartValues.length > 1 ? <span className="relative mt-3 block pt-8">{hoveredBar !== null && <span className="absolute top-0 z-10 -translate-x-1/2 rounded-md bg-[#15231d] px-2 py-1 text-[10px] font-semibold text-white whitespace-nowrap shadow-lg dark:bg-[#e8eee9] dark:text-[#15231d]" style={{ left: `${(chartStart + hoveredBar * (barWidth + gap) + barWidth / 2) / 180 * 100}%` }}>{chartItems[hoveredBar].period.label} · {formatFact(chartItems[hoveredBar].fact.value, chartItems[hoveredBar].fact.unit)}</span>}<svg viewBox="0 0 180 56" className={`h-14 w-full ${positive ? 'text-emerald-500' : 'text-rose-500'}`} preserveAspectRatio="none"><line className="stroke-[#dfe5e0] dark:stroke-[#405148]" x1="0" y1={baseline} x2="180" y2={baseline} strokeWidth="1" />{chartValues.map((value, index) => { const height = Math.max(Math.abs(value) / range * 40, 1); const y = value >= 0 ? baseline - height : baseline; return <rect key={`${index}-${value}`} className="cursor-help" x={chartStart + index * (barWidth + gap)} y={y} width={barWidth} height={height} rx="2" fill="currentColor" opacity={index === chartValues.length - 1 ? 1 : .48 + index / chartValues.length * .35} onMouseEnter={() => setHoveredBar(index)} onMouseLeave={() => setHoveredBar(null)}><title>{chartItems[index].period.label}: {formatFact(chartItems[index].fact.value, chartItems[index].fact.unit)}</title></rect> })}</svg></span> : <span className="mt-4 block rounded-xl bg-[#f5f7f5] px-3 py-4 text-center text-xs font-normal text-[#7d8881]">More periods are needed to calculate a trend.</span>}
       {latest && <span className="mt-3 grid grid-cols-2 gap-2 border-t border-[#e7ebe7] pt-3"><span><span className="block text-[10px] font-medium text-[#929b95]">Latest · {latest.period.label}</span><span className="mt-1 block text-sm font-bold">{formatFact(latest.fact.value, latest.fact.unit)}</span></span><span><span className="block text-[10px] font-medium text-[#929b95]">Period change</span><span className={`mt-1 block text-sm font-bold ${change === null ? 'text-[#7d8881]' : positive ? 'text-emerald-700' : 'text-rose-600'}`}>{change === null ? '—' : `${positive ? '+' : ''}${formatFact(change, latest.fact.unit)}`}</span></span></span>}
     </span>
   </th>
