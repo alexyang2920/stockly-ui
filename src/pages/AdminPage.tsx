@@ -22,12 +22,13 @@ function previousWeekday() {
 }
 
 function AdminPage({ auth, onNeedAuth }: { auth: AuthResponse | null, onNeedAuth: () => void }) {
+  const isAdmin = auth?.user.role === 'ADMIN'
   const [tab, setTab] = useState<'market' | 'instruments'>('market')
   const [statuses, setStatuses] = useState<MarketDataDatasetStatus[]>([])
   const [selected, setSelected] = useState({ QUOTES: true, DIVIDENDS: true, SPLITS: true })
   const [marketDate, setMarketDate] = useState(previousWeekday)
   const [corporateFrom, setCorporateFrom] = useState('')
-  const [loading, setLoading] = useState(Boolean(auth))
+  const [loading, setLoading] = useState(isAdmin)
   const [syncing, setSyncing] = useState(false)
   const [error, setError] = useState('')
   const [summary, setSummary] = useState('')
@@ -36,15 +37,16 @@ function AdminPage({ auth, onNeedAuth }: { auth: AuthResponse | null, onNeedAuth
   const [classificationSummary, setClassificationSummary] = useState('')
 
   useEffect(() => {
-    if (!auth) return
+    if (!auth || !isAdmin) return
     const controller = new AbortController()
     getMarketDataStatus(auth, controller.signal).then(setStatuses)
       .catch((reason: unknown) => setError(apiErrorMessage(reason, 'Unable to load synchronization status.')))
       .finally(() => { if (!controller.signal.aborted) setLoading(false) })
     return () => controller.abort()
-  }, [auth])
+  }, [auth, isAdmin])
 
-  if (!auth) return <main className="mx-auto max-w-[900px] px-5 py-16"><section className="rounded-[24px] border border-[#dfe4df] bg-white px-7 py-16 text-center"><h1 className="text-2xl font-semibold">Administration requires authentication</h1><p className="mt-2 text-sm text-[#77837b]">Role restrictions can be added when Stockly introduces administrator accounts.</p><button onClick={onNeedAuth} className="mt-6 rounded-xl bg-[#173c2c] px-5 py-3 text-sm font-bold text-white">Sign in</button></section></main>
+  if (!auth) return <main className="mx-auto max-w-[900px] px-5 py-16"><section className="rounded-[24px] border border-[#dfe4df] bg-white px-7 py-16 text-center"><h1 className="text-2xl font-semibold">Administration requires authentication</h1><p className="mt-2 text-sm text-[#77837b]">Sign in with an administrator account to continue.</p><button onClick={onNeedAuth} className="mt-6 rounded-xl bg-[#173c2c] px-5 py-3 text-sm font-bold text-white">Sign in</button></section></main>
+  if (!isAdmin) return <main className="mx-auto max-w-[900px] px-5 py-16"><section className="rounded-[24px] border border-[#dfe4df] bg-white px-7 py-16 text-center"><h1 className="text-2xl font-semibold">Administrator access required</h1><p className="mt-2 text-sm text-[#77837b]">Your account does not have permission to manage Stockly data.</p></section></main>
 
   const runSync = async (mode: 'market' | 'continue-dividends' | 'restart-dividends') => {
     const dividendOnly = mode !== 'market'
@@ -112,7 +114,7 @@ function AdminPage({ auth, onNeedAuth }: { auth: AuthResponse | null, onNeedAuth
 
     {tab === 'instruments' && <section className="rounded-[22px] border border-[#dfe4df] bg-white p-5 md:p-7"><div className="flex items-start gap-4"><span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[#eaf1ec] text-[#285d43]"><svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 5h16v14H4zM8 9h8M8 13h5" /></svg></span><div><h2 className="text-xl font-semibold tracking-[-.025em]">Company classifications</h2><p className="mt-1 max-w-2xl text-sm leading-6 text-[#7a857e]">Fetch pending company SIC classifications from SEC data, then derive sector and industry information used by portfolio allocation. ETFs are skipped and remain classified as Funds.</p></div></div><div className="mt-7 max-w-sm"><label className="text-sm font-semibold">Batch size <span className="font-normal text-[#87918b]">(1–500)</span><input type="number" min="1" max="500" value={classificationLimit} onChange={(event) => setClassificationLimit(Math.min(500, Math.max(1, Number(event.target.value) || 1)))} className="mt-2 w-full rounded-xl border border-[#dce2dd] bg-white px-3.5 py-3 font-normal outline-none focus:border-[#789887]" /></label><button onClick={syncClassifications} disabled={classificationSyncing} className="mt-4 w-full rounded-xl bg-[#173c2c] px-5 py-3.5 text-sm font-bold text-white hover:bg-[#205139] disabled:cursor-wait disabled:opacity-60">{classificationSyncing ? 'Synchronizing classifications…' : 'Sync company classifications'}</button></div><div className="mt-6 rounded-xl bg-[#f7f9f7] p-4 text-xs leading-5 text-[#69756d]">Only stocks with a CIK and no existing classification are selected. Run additional batches until the reported remaining count reaches zero.</div></section>}
 
-    <section className="mt-6 rounded-[22px] border border-[#dfe4df] bg-[#eef4ef] p-5 md:p-6"><h2 className="font-semibold">Authorization design</h2><p className="mt-1 text-sm leading-6 text-[#69756d]">Administration operations currently require an authenticated account. When roles are introduced, these routes can be restricted to an ADMIN authority without changing the page contracts.</p></section>
+    <section className="mt-6 rounded-[22px] border border-[#dfe4df] bg-[#eef4ef] p-5 md:p-6"><h2 className="font-semibold">Administrator access</h2><p className="mt-1 text-sm leading-6 text-[#69756d]">These synchronization operations are restricted to accounts with the ADMIN role.</p></section>
   </main>
 }
 
