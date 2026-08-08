@@ -226,7 +226,7 @@ function InstrumentPage({ symbol, auth, onBack, onNeedAuth, onWatchChange, watch
   if (error || !instrument) return <main className="mx-auto max-w-[900px] px-5 py-16 text-center"><div className="rounded-[24px] border border-rose-200 bg-white p-10"><h1 className="text-2xl font-semibold">Instrument unavailable</h1><p className="mt-2 text-[#78837c]">{error || `We could not find ${symbol}.`}</p><button onClick={onBack} className="mt-6 rounded-xl bg-[#173c2c] px-5 py-3 text-sm font-bold text-white">Back to search</button></div></main>
 
   return <main className="mx-auto max-w-[1200px] px-5 py-8 lg:px-8 lg:py-11">
-    <button onClick={onBack} className="mb-7 flex items-center gap-2 text-sm font-semibold text-[#68756d] hover:text-[#173c2c]"><svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M11 18l-6-6 6-6" /></svg> Back to results</button>
+    <button onClick={onBack} className="mb-7 flex items-center gap-2 text-sm font-semibold text-[#68756d] hover:text-[#173c2c]"><svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M11 18l-6-6 6-6" /></svg> Back </button>
 
     <section className="rounded-[24px] border border-[#dce2dd] bg-white p-6 shadow-[0_12px_40px_rgba(23,39,30,.035)] md:p-8">
       <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-start">
