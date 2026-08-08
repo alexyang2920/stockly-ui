@@ -235,9 +235,9 @@ function App() {
             </div>
           </nav>
 
-          <form onSubmit={submitGlobalSearch} className="relative ml-auto hidden w-32 md:block lg:w-44 xl:w-56">
-            <Icon name="search" className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-[#879089]" />
-            <input id="global-search" value={globalSearch} onChange={(event) => setGlobalSearch(event.target.value)} maxLength={50} className="w-full rounded-xl border border-[#dfe4df] bg-white py-2.5 pl-10 pr-12 text-sm shadow-sm outline-none placeholder:text-[#879089] focus:border-[#789887] focus:ring-4 focus:ring-[#e2ebe5]" placeholder="Search stocks or ETFs" aria-label="Search stocks or ETFs" />
+          <form onSubmit={submitGlobalSearch} className="relative ml-auto hidden w-44 md:block lg:w-48 xl:w-56">
+            <Icon name="search" className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-[#879089]" />
+            <input id="global-search" value={globalSearch} onChange={(event) => setGlobalSearch(event.target.value)} maxLength={50} className="w-full rounded-xl border border-[#dfe4df] bg-white py-2.5 pl-9 pr-9 text-[11px] shadow-sm outline-none placeholder:text-[#879089] focus:border-[#789887] focus:ring-4 focus:ring-[#e2ebe5]" placeholder="Search stocks or ETFs" aria-label="Search stocks or ETFs" />
             <button className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg px-2 py-1 text-xs font-bold text-[#526158] hover:bg-[#eef2ee]" aria-label="Submit search">↵</button>
           </form>
           <button onClick={() => navigate({ view: 'watchlist' })} className={`hidden size-10 place-items-center rounded-xl border bg-white transition hover:border-[#aeb9b1] md:grid ${route.view === 'watchlist' ? 'border-[#789887] text-amber-500' : 'border-[#dfe4df] text-[#4e5c54]'}`} aria-label="Open watchlist" title="Watchlist"><Icon name="star" className="size-[18px]" /></button>
