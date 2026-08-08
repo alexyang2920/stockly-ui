@@ -224,7 +224,7 @@ function App() {
       <header className="sticky top-0 z-40 border-b border-[#dfe4df] bg-[#fbfcf9]/95 backdrop-blur-xl">
         <div className="mx-auto flex h-[72px] max-w-[1560px] items-center gap-8 px-5 md:gap-3 lg:px-8 xl:gap-8">
           <button className="flex items-center gap-2.5" onClick={() => navigate({ view: 'home' })} aria-label="Stockly home">
-            <span className="grid size-9 place-items-center rounded-xl bg-[#173c2c] text-white shadow-[0_7px_18px_rgba(23,60,44,.18)]"><Icon name="trend" className="size-5" /></span>
+            <img src="/favicon.svg" alt="" className="size-9 rounded-xl shadow-[0_7px_18px_rgba(23,60,44,.18)]" />
           </button>
 
           <nav className="hidden items-center gap-1 md:flex" aria-label="Main navigation">
