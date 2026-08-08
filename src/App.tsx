@@ -222,7 +222,7 @@ function App() {
   return (
     <div className="min-h-screen bg-[#f7f8f5] text-[#15231d]">
       <header className="sticky top-0 z-40 border-b border-[#dfe4df] bg-[#fbfcf9]/95 backdrop-blur-xl">
-        <div className="mx-auto flex h-[72px] max-w-[1480px] items-center gap-8 px-5 lg:px-8">
+        <div className="mx-auto flex h-[72px] max-w-[1560px] items-center gap-8 px-5 lg:px-8">
           <button className="flex items-center gap-2.5" onClick={() => navigate({ view: 'home' })} aria-label="Stockly home">
             <span className="grid size-9 place-items-center rounded-xl bg-[#173c2c] text-white shadow-[0_7px_18px_rgba(23,60,44,.18)]"><Icon name="trend" className="size-5" /></span>
             <span className="text-[21px] font-bold tracking-[-.04em]">Stockly</span>
@@ -251,7 +251,7 @@ function App() {
       </header>
 
       {route.view === 'home' && <OverviewPage auth={auth} portfolioId={preferredPortfolioId} onNeedAuth={() => setShowModal(true)} onOpenHoldings={() => auth ? navigate({ view: 'portfolio', section: 'holdings', portfolioId: preferredPortfolioId, addTransaction: false }) : setShowModal(true)} onOpenDividends={() => auth ? navigate({ view: 'dividends', portfolioId: preferredPortfolioId }) : setShowModal(true)} onSelectInstrument={(symbol) => navigate({ view: 'instrument', symbol })} />}
-      {route.view === 'home' && window.location.hash === '#legacy-overview' && <main className="mx-auto max-w-[1480px] px-5 py-8 lg:px-8 lg:py-11">
+      {route.view === 'home' && window.location.hash === '#legacy-overview' && <main className="mx-auto max-w-[1560px] px-5 py-8 lg:px-8 lg:py-11">
         <section className="mb-9 flex flex-col justify-between gap-5 md:flex-row md:items-end">
           <div>
             <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[.16em] text-[#718078]"><span className="size-1.5 rounded-full bg-emerald-500" /> Markets are open</div>

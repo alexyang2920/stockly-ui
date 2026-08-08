@@ -8,7 +8,9 @@ import type { DividendEvent, FinancialFact, FinancialRatios, Instrument, Instrum
 
 type Period = FinancialPeriod
 type Basis = RatioBasis
+type DividendPeriod = 'ANNUAL' | 'QUARTERLY' | 'MONTHLY'
 type FinancialPeriodColumn = { key: string, label: string, periodEnd: string, fiscalYear: number }
+type DividendChartPoint = { key: string, label: string, year: number, quarter?: number, month?: number, amount: number, change: number | null }
 
 type InstrumentPageProps = {
   symbol: string
@@ -60,6 +62,7 @@ function InstrumentPage({ symbol, auth, onBack, onNeedAuth, onWatchChange, watch
   const [watchError, setWatchError] = useState('')
   const [quote, setQuote] = useState<InstrumentQuote | null>(null)
   const [dividends, setDividends] = useState<DividendEvent[]>([])
+  const [dividendPeriod, setDividendPeriod] = useState<DividendPeriod>('ANNUAL')
   const [splits, setSplits] = useState<StockSplitEvent[]>([])
   const [marketLoading, setMarketLoading] = useState(true)
   const [marketRefreshing, setMarketRefreshing] = useState(false)
@@ -161,6 +164,65 @@ function InstrumentPage({ symbol, auth, onBack, onNeedAuth, onWatchChange, watch
     return { periods, metrics, factMap }
   }, [facts, loadedPeriod])
 
+  const paysMonthlyDividends = dividends.some((event) => event.frequency === 12)
+  const effectiveDividendPeriod: DividendPeriod = dividendPeriod === 'ANNUAL' ? 'ANNUAL' : paysMonthlyDividends ? 'MONTHLY' : 'QUARTERLY'
+
+  const dividendChartData = useMemo(() => {
+    const today = new Date()
+    const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+    const currentYear = today.getFullYear()
+    const currentMonth = today.getMonth() + 1
+    const currentQuarter = Math.floor(today.getMonth() / 3) + 1
+    const totals = new Map<string, { year: number, quarter?: number, month?: number, amount: number }>()
+    dividends.forEach((event) => {
+      if (event.exDividendDate > todayKey) return
+      const date = new Date(`${event.exDividendDate}T00:00:00`)
+      const year = date.getFullYear()
+      const month = date.getMonth() + 1
+      const quarter = Math.floor(date.getMonth() / 3) + 1
+      const key = effectiveDividendPeriod === 'ANNUAL' ? String(year) : effectiveDividendPeriod === 'MONTHLY' ? `${year}-${month}` : `${year}-Q${quarter}`
+      const current = totals.get(key) ?? { year, quarter: effectiveDividendPeriod === 'QUARTERLY' ? quarter : undefined, month: effectiveDividendPeriod === 'MONTHLY' ? month : undefined, amount: 0 }
+      current.amount += event.splitAdjustedCashAmount ?? event.cashAmount
+      totals.set(key, current)
+    })
+    const ordered = [...totals.entries()].sort(([, left], [, right]) => left.year - right.year || (left.month ?? left.quarter ?? 0) - (right.month ?? right.quarter ?? 0))
+    const firstVisibleYear = new Date().getFullYear() - 14
+    return ordered.map(([key, value]): DividendChartPoint => {
+      const priorKey = effectiveDividendPeriod === 'ANNUAL' ? String(value.year - 1) : effectiveDividendPeriod === 'MONTHLY' ? `${value.year - 1}-${value.month}` : `${value.year - 1}-Q${value.quarter}`
+      const isIncomplete = value.year === currentYear
+              && (effectiveDividendPeriod === 'ANNUAL' || (effectiveDividendPeriod === 'MONTHLY' ? value.month === currentMonth : value.quarter === currentQuarter))
+      const prior = isIncomplete
+        ? dividends.filter((event) => {
+            const eventYear = Number(event.exDividendDate.slice(0, 4))
+            const eventMonth = Number(event.exDividendDate.slice(5, 7))
+            const eventQuarter = Math.floor((Number(event.exDividendDate.slice(5, 7)) - 1) / 3) + 1
+            const matchedCutoff = `${currentYear - 1}-${todayKey.slice(5)}`
+            return eventYear === currentYear - 1
+              && (effectiveDividendPeriod === 'ANNUAL' || (effectiveDividendPeriod === 'MONTHLY' ? eventMonth === currentMonth : eventQuarter === currentQuarter))
+              && event.exDividendDate <= matchedCutoff
+          }).reduce((sum, event) => sum + (event.splitAdjustedCashAmount ?? event.cashAmount), 0)
+        : totals.get(priorKey)?.amount
+      return {
+        key,
+        label: effectiveDividendPeriod === 'ANNUAL'
+          ? `${value.year}${isIncomplete ? ' YTD' : ''}`
+          : effectiveDividendPeriod === 'MONTHLY'
+            ? `${new Intl.DateTimeFormat('en-US', { month: 'short' }).format(new Date(value.year, (value.month ?? 1) - 1, 1))} '${String(value.year).slice(-2)}${isIncomplete ? ' MTD' : ''}`
+            : `Q${value.quarter} '${String(value.year).slice(-2)}${isIncomplete ? ' QTD' : ''}`,
+        year: value.year,
+        quarter: value.quarter,
+        month: value.month,
+        amount: value.amount,
+        change: prior && prior !== 0 ? (value.amount - prior) / Math.abs(prior) * 100 : null,
+      }
+    }).filter((point) => point.year >= firstVisibleYear)
+  }, [dividends, effectiveDividendPeriod])
+
+  const displayedDividends = useMemo(() => {
+    const firstVisibleYear = new Date().getFullYear() - 14
+    return dividends.filter((event) => Number(event.exDividendDate.slice(0, 4)) >= firstVisibleYear)
+  }, [dividends])
+
   const changePeriod = (value: string) => {
     setFactsLoading(true)
     setFactsMessage('')
@@ -222,10 +284,10 @@ function InstrumentPage({ symbol, auth, onBack, onNeedAuth, onWatchChange, watch
     setMarketRefreshing(false)
   }
 
-  if (loading) return <main className="mx-auto max-w-[1200px] px-5 py-12 lg:px-8"><div className="h-52 animate-pulse rounded-[24px] bg-white" /></main>
+  if (loading) return <main className="mx-auto max-w-[1560px] px-5 py-12 lg:px-8"><div className="h-52 animate-pulse rounded-[24px] bg-white" /></main>
   if (error || !instrument) return <main className="mx-auto max-w-[900px] px-5 py-16 text-center"><div className="rounded-[24px] border border-rose-200 bg-white p-10"><h1 className="text-2xl font-semibold">Instrument unavailable</h1><p className="mt-2 text-[#78837c]">{error || `We could not find ${symbol}.`}</p><button onClick={onBack} className="mt-6 rounded-xl bg-[#173c2c] px-5 py-3 text-sm font-bold text-white">Back to search</button></div></main>
 
-  return <main className="mx-auto max-w-[1200px] px-5 py-8 lg:px-8 lg:py-11">
+  return <main className="mx-auto max-w-[1560px] px-5 py-8 lg:px-8 lg:py-11">
     <button onClick={onBack} className="mb-7 flex items-center gap-2 text-sm font-semibold text-[#68756d] hover:text-[#173c2c]"><svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M11 18l-6-6 6-6" /></svg> Back </button>
 
     <section className="rounded-[24px] border border-[#dce2dd] bg-white p-6 shadow-[0_12px_40px_rgba(23,39,30,.035)] md:p-8">
@@ -247,8 +309,8 @@ function InstrumentPage({ symbol, auth, onBack, onNeedAuth, onWatchChange, watch
     </section>
 
     <section className="mt-6 overflow-hidden rounded-[22px] border border-[#dfe4df] bg-white">
-      <div className="border-b border-[#e5e9e5] p-5 md:px-7"><h2 className="text-xl font-semibold tracking-[-.025em]">Dividend history</h2><p className="mt-1 text-sm text-[#7a857e]">Declared cash distributions, newest ex-dividend date first</p></div>
-      {marketLoading ? <div className="h-40 animate-pulse bg-[#f7f9f7]" /> : dividends.length ? <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left"><thead className="bg-[#fafbf9] text-[10px] font-bold uppercase tracking-[.12em] text-[#849088]"><tr><th className="px-6 py-3">Ex-dividend</th><th className="px-4 py-3">Pay date</th><th className="px-4 py-3">Type</th><th className="px-4 py-3">Frequency</th><th className="px-4 py-3 text-right">Reported</th><th className="px-6 py-3 text-right">Split-adjusted</th></tr></thead><tbody>{dividends.map((event) => <tr key={`${event.exDividendDate}-${event.cashAmount}`} className="border-t border-[#ecefec] hover:bg-[#fafcf9] dark:hover:bg-[#1a2520]"><td className="px-6 py-4 text-sm font-semibold">{event.exDividendDate}</td><td className="px-4 py-4 text-sm text-[#6f7b74]">{event.payDate ?? '—'}</td><td className="px-4 py-4 text-sm">{event.dividendType ? humanize(event.dividendType.toLowerCase()) : 'Cash'}</td><td className="px-4 py-4 text-sm text-[#6f7b74]">{frequencyLabel(event.frequency)}</td><td className="px-4 py-4 text-right text-sm tabular-nums text-[#6f7b74]">{formatMoney(event.cashAmount, event.currency)}</td><td className="px-6 py-4 text-right text-sm font-bold tabular-nums">{formatMoney(event.splitAdjustedCashAmount ?? event.cashAmount, event.currency)}</td></tr>)}</tbody></table></div> : <div className="px-6 py-10 text-center"><p className="font-semibold">No dividend events found</p><p className="mt-1 text-sm text-[#7a857e]">This instrument may not pay a dividend, or its history has not been synchronized.</p></div>}
+      <div className="flex flex-col justify-between gap-4 border-b border-[#e5e9e5] p-5 sm:flex-row sm:items-center md:px-7"><div><h2 className="text-xl font-semibold tracking-[-.025em]">Dividend history</h2><p className="mt-1 text-sm text-[#7a857e]">Latest 15 calendar years · split-adjusted distributions</p></div><Segmented values={['ANNUAL', paysMonthlyDividends ? 'MONTHLY' : 'QUARTERLY']} active={effectiveDividendPeriod} onChange={(value) => setDividendPeriod(value as DividendPeriod)} /></div>
+      {marketLoading ? <div className="h-72 animate-pulse bg-[#f7f9f7]" /> : displayedDividends.length ? <><DividendHistoryChart data={dividendChartData} currency={displayedDividends[0]?.currency ?? 'USD'} period={effectiveDividendPeriod} /><div className="overflow-x-auto border-t border-[#e5e9e5]"><table className="w-full min-w-[760px] text-left"><thead className="bg-[#fafbf9] text-[10px] font-bold uppercase tracking-[.12em] text-[#849088]"><tr><th className="px-6 py-3">Ex-dividend</th><th className="px-4 py-3">Pay date</th><th className="px-4 py-3">Type</th><th className="px-4 py-3">Frequency</th><th className="px-4 py-3 text-right">Reported</th><th className="px-6 py-3 text-right">Split-adjusted</th></tr></thead><tbody>{displayedDividends.map((event) => <tr key={`${event.exDividendDate}-${event.cashAmount}`} className="border-t border-[#ecefec] hover:bg-[#fafcf9] dark:hover:bg-[#1a2520]"><td className="px-6 py-4 text-sm font-semibold">{event.exDividendDate}</td><td className="px-4 py-4 text-sm text-[#6f7b74]">{event.payDate ?? '—'}</td><td className="px-4 py-4 text-sm">{event.dividendType ? humanize(event.dividendType.toLowerCase()) : 'Cash'}</td><td className="px-4 py-4 text-sm text-[#6f7b74]">{frequencyLabel(event.frequency)}</td><td className="px-4 py-4 text-right text-sm tabular-nums text-[#6f7b74]">{formatMoney(event.cashAmount, event.currency)}</td><td className="px-6 py-4 text-right text-sm font-bold tabular-nums">{formatMoney(event.splitAdjustedCashAmount ?? event.cashAmount, event.currency)}</td></tr>)}</tbody></table></div></> : <div className="px-6 py-10 text-center"><p className="font-semibold">No dividend events found</p><p className="mt-1 text-sm text-[#7a857e]">This instrument may not pay a dividend, or its history has not been synchronized.</p></div>}
     </section>
 
     <section className="mt-6 overflow-hidden rounded-[22px] border border-[#dfe4df] bg-white">
@@ -269,6 +331,41 @@ function InstrumentPage({ symbol, auth, onBack, onNeedAuth, onWatchChange, watch
       </section>
     </>}
   </main>
+}
+
+function DividendHistoryChart({ data, currency, period }: { data: DividendChartPoint[], currency: string, period: DividendPeriod }) {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
+  const width = Math.max(760, data.length * (period === 'ANNUAL' ? 92 : period === 'MONTHLY' ? 38 : 48) + 120)
+  const height = 300
+  const left = 64
+  const right = 64
+  const top = 28
+  const bottom = 54
+  const plotWidth = width - left - right
+  const plotHeight = height - top - bottom
+  const baseline = top + plotHeight
+  const maximumAmount = Math.max(...data.map((point) => point.amount), 1)
+  const changes = data.flatMap((point) => point.change == null ? [] : [point.change])
+  const minimumChange = Math.min(0, ...changes)
+  const maximumChange = Math.max(0, ...changes)
+  const changeRange = maximumChange - minimumChange || 1
+  const slotWidth = plotWidth / Math.max(data.length, 1)
+  const barWidth = Math.min(period === 'ANNUAL' ? 46 : period === 'MONTHLY' ? 16 : 22, slotWidth * .58)
+  const x = (index: number) => left + slotWidth * index + slotWidth / 2
+  const changeY = (value: number) => top + (maximumChange - value) / changeRange * plotHeight
+  const compactCurrency = (value: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency, notation: 'compact', maximumFractionDigits: 1 }).format(value)
+
+  return <div className="px-4 py-5 sm:px-6">
+    <div className="mb-3 flex flex-wrap items-center gap-5 text-[11px] font-semibold text-[#718078]"><span className="flex items-center gap-2"><i className="size-2.5 rounded-sm bg-[#3b91bc]" />Dividend per share</span><span className="flex items-center gap-2"><i className="h-0.5 w-5 bg-amber-500" />Year-over-year change</span></div>
+    <div className="overflow-x-auto"><div className="relative" style={{ width: `${width}px`, height: `${height}px` }}><svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${period === 'ANNUAL' ? 'Annual' : period === 'MONTHLY' ? 'Monthly' : 'Quarterly'} dividend history and year-over-year change`} className="max-w-none">
+      {[0, .25, .5, .75, 1].map((ratio) => { const y = top + plotHeight * (1 - ratio); return <g key={ratio}><line x1={left} x2={width - right} y1={y} y2={y} className="stroke-[#e5eae6] dark:stroke-[#344139]" strokeDasharray={ratio ? '3 4' : undefined} /><text x={left - 9} y={y + 4} textAnchor="end" className="fill-[#7b867f] text-[10px]">{compactCurrency(maximumAmount * ratio)}</text></g> })}
+      {data.map((point, index) => { const center = x(index); const barHeight = point.amount / maximumAmount * plotHeight; return <g key={point.key}><rect x={center - barWidth / 2} y={baseline - barHeight} width={barWidth} height={barHeight} rx="4" className={`fill-[#3b91bc] transition-opacity dark:fill-[#55a9d2] ${hoveredIndex !== null && hoveredIndex !== index ? 'opacity-45' : ''}`} /><text x={center} y={baseline + 20} textAnchor="middle" className="fill-[#758179] text-[10px]">{point.label}</text></g> })}
+      {data.slice(1).map((point, index) => { const previous = data[index]; return previous.change != null && point.change != null ? <line key={`${previous.key}-${point.key}`} x1={x(index)} y1={changeY(previous.change)} x2={x(index + 1)} y2={changeY(point.change)} className="stroke-amber-500" strokeWidth="2.5" /> : null })}
+      {data.map((point, index) => point.change == null ? null : <circle key={`${point.key}-change`} cx={x(index)} cy={changeY(point.change)} r={hoveredIndex === index ? 6 : 4} className="fill-amber-500 stroke-white transition-all dark:stroke-[#141d19]" strokeWidth="2" />)}
+      <text x={width - right + 10} y={top + 4} className="fill-amber-600 text-[10px]">{maximumChange.toFixed(1)}%</text><text x={width - right + 10} y={baseline + 4} className="fill-amber-600 text-[10px]">{minimumChange.toFixed(1)}%</text>
+    </svg>{data.map((point, index) => <button key={`${point.key}-target`} type="button" onMouseEnter={() => setHoveredIndex(index)} onMouseLeave={() => setHoveredIndex(null)} onFocus={() => setHoveredIndex(index)} onBlur={() => setHoveredIndex(null)} className="absolute top-7 z-10 bg-transparent outline-none" style={{ left: `${left + slotWidth * index}px`, width: `${slotWidth}px`, height: `${plotHeight}px` }} aria-label={`${point.label}, dividend ${formatMoney(point.amount, currency)}, year-over-year change ${point.change == null ? 'not available' : `${point.change.toFixed(1)} percent`}`} />)}{hoveredIndex !== null && (() => { const point = data[hoveredIndex]; const tooltipLeft = Math.max(8, Math.min(x(hoveredIndex) - 88, width - 184)); return <div className="pointer-events-none absolute top-9 z-20 w-44 rounded-xl bg-[#15231d] p-3 text-white shadow-[0_12px_32px_rgba(20,35,29,.3)]" style={{ left: `${tooltipLeft}px` }}><p className="border-b border-white/15 pb-2 text-xs font-bold">{point.label}</p><div className="mt-2 flex items-center justify-between gap-3 text-[11px]"><span className="text-white/65">Dividend</span><strong>{formatMoney(point.amount, currency)}</strong></div><div className="mt-2 flex items-center justify-between gap-3 text-[11px]"><span className="text-white/65">YoY change</span><strong className={point.change == null ? 'text-white/55' : point.change >= 0 ? 'text-emerald-300' : 'text-rose-300'}>{point.change == null ? 'Not available' : `${point.change >= 0 ? '+' : ''}${point.change.toFixed(1)}%`}</strong></div></div> })()}</div></div>
+    <p className="mt-2 text-[11px] text-[#849088]">{period === 'ANNUAL' ? 'Completed years use full-year change; the current year compares YTD dividends with the same prior-year dates.' : period === 'MONTHLY' ? 'Each month compares with the same month one year earlier; the current month uses matching MTD dates.' : 'Completed quarters compare with the same prior-year quarter; the current quarter uses matching QTD dates.'}</p>
+  </div>
 }
 
 function Detail({ label, value }: { label: string, value: string }) {

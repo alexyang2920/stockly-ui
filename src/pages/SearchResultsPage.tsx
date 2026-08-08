@@ -38,7 +38,7 @@ function SearchResultsPage({ query, onSearch, onSelect }: SearchResultsPageProps
     if (value) onSearch(value)
   }
 
-  return <main className="mx-auto max-w-[1120px] px-5 py-8 lg:px-8 lg:py-12">
+  return <main className="mx-auto max-w-[1560px] px-5 py-8 lg:px-8 lg:py-12">
     <div className="mb-8">
       <p className="text-xs font-bold uppercase tracking-[.15em] text-[#718078]">Instrument discovery</p>
       <h1 className="mt-3 text-[34px] font-semibold tracking-[-.04em] md:text-[44px]">Search the market</h1>

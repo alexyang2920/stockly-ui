@@ -77,7 +77,7 @@ function AdminPage({ auth, onNeedAuth }: { auth: AuthResponse | null, onNeedAuth
     finally { setClassificationSyncing(false) }
   }
 
-  return <main className="mx-auto max-w-[1180px] px-5 py-8 lg:px-8 lg:py-11">
+  return <main className="mx-auto max-w-[1560px] px-5 py-8 lg:px-8 lg:py-11">
     <div className="mb-6"><p className="text-xs font-bold uppercase tracking-[.15em] text-[#718078]">Stockly operations</p><h1 className="mt-2 text-[38px] font-semibold tracking-[-.045em] md:text-[48px]">Administration</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-[#738078]">Manage external datasets and maintain the instrument catalog.</p></div>
     <nav className="mb-7 flex gap-1 rounded-2xl border border-[#dfe4df] bg-white p-1.5" aria-label="Administration sections"><button onClick={() => { setTab('market'); setError('') }} className={`flex-1 rounded-xl px-4 py-3 text-sm font-bold transition sm:flex-none ${tab === 'market' ? 'bg-[#173c2c] text-white' : 'text-[#6e7a73] hover:bg-[#f3f5f2]'}`}>Market Data</button><button onClick={() => { setTab('instruments'); setError('') }} className={`flex-1 rounded-xl px-4 py-3 text-sm font-bold transition sm:flex-none ${tab === 'instruments' ? 'bg-[#173c2c] text-white' : 'text-[#6e7a73] hover:bg-[#f3f5f2]'}`}>Instruments</button><span className="hidden rounded-xl px-4 py-3 text-sm font-bold text-[#a0aaa4] sm:block" title="Coming later">Financial Data</span></nav>
 
