@@ -222,13 +222,12 @@ function App() {
   return (
     <div className="min-h-screen bg-[#f7f8f5] text-[#15231d]">
       <header className="sticky top-0 z-40 border-b border-[#dfe4df] bg-[#fbfcf9]/95 backdrop-blur-xl">
-        <div className="mx-auto flex h-[72px] max-w-[1560px] items-center gap-8 px-5 lg:px-8">
+        <div className="mx-auto flex h-[72px] max-w-[1560px] items-center gap-8 px-5 md:gap-3 lg:px-8 xl:gap-8">
           <button className="flex items-center gap-2.5" onClick={() => navigate({ view: 'home' })} aria-label="Stockly home">
             <span className="grid size-9 place-items-center rounded-xl bg-[#173c2c] text-white shadow-[0_7px_18px_rgba(23,60,44,.18)]"><Icon name="trend" className="size-5" /></span>
-            <span className="text-[21px] font-bold tracking-[-.04em]">Stockly</span>
           </button>
 
-          <nav className="hidden items-center gap-1 lg:flex" aria-label="Main navigation">
+          <nav className="hidden items-center gap-1 md:flex" aria-label="Main navigation">
             <button onClick={() => selectNav('Overview')} className={`rounded-lg px-3.5 py-2 text-sm font-medium transition ${route.view === 'home' ? 'bg-[#e9efea] text-[#173c2c] dark:text-[#b8e2c9]' : 'text-[#66716b] hover:bg-white hover:text-[#15231d]'}`}>Overview</button>
             <div className="group relative">
               <button onClick={() => selectNav('Holdings')} className={`flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-medium transition ${route.view === 'portfolio' || route.view === 'dividends' ? 'bg-[#e9efea] text-[#173c2c] dark:text-[#b8e2c9]' : 'text-[#66716b] hover:bg-white hover:text-[#15231d]'}`} aria-haspopup="menu"><span>Portfolio</span><svg className="size-3.5 transition group-hover:rotate-180 group-focus-within:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6" /></svg></button>
@@ -236,17 +235,17 @@ function App() {
             </div>
           </nav>
 
-          <form onSubmit={submitGlobalSearch} className="relative ml-auto hidden min-w-56 md:block xl:min-w-72">
+          <form onSubmit={submitGlobalSearch} className="relative ml-auto hidden w-32 md:block lg:w-44 xl:w-56">
             <Icon name="search" className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-[#879089]" />
             <input id="global-search" value={globalSearch} onChange={(event) => setGlobalSearch(event.target.value)} maxLength={50} className="w-full rounded-xl border border-[#dfe4df] bg-white py-2.5 pl-10 pr-12 text-sm shadow-sm outline-none placeholder:text-[#879089] focus:border-[#789887] focus:ring-4 focus:ring-[#e2ebe5]" placeholder="Search stocks or ETFs" aria-label="Search stocks or ETFs" />
             <button className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg px-2 py-1 text-xs font-bold text-[#526158] hover:bg-[#eef2ee]" aria-label="Submit search">↵</button>
           </form>
-          <button onClick={() => navigate({ view: 'watchlist' })} className={`hidden size-10 place-items-center rounded-xl border bg-white transition hover:border-[#aeb9b1] lg:grid ${route.view === 'watchlist' ? 'border-[#789887] text-amber-500' : 'border-[#dfe4df] text-[#4e5c54]'}`} aria-label="Open watchlist" title="Watchlist"><Icon name="star" className="size-[18px]" /></button>
-          {auth && <div className="hidden lg:block"><PortfolioNav auth={auth} selectedId={route.view === 'portfolio' || route.view === 'dividends' ? route.portfolioId ?? preferredPortfolioId : preferredPortfolioId} onSelect={selectPortfolio} /></div>}
-          {auth ? <div className="hidden lg:block"><UserMenu auth={auth} darkMode={darkMode} onToggleTheme={toggleTheme} onAdmin={() => navigate({ view: 'admin' })} onSignOut={signOut} /></div> : <button onClick={() => setShowModal(true)} className="hidden items-center gap-2 rounded-xl bg-[#173c2c] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(23,60,44,.18)] transition hover:bg-[#205139] sm:flex"><Icon name="user" className="size-4" /> Sign in</button>}
-          <button onClick={() => setMobileOpen(!mobileOpen)} className="ml-auto grid size-10 place-items-center rounded-xl border border-[#dfe4df] bg-white lg:hidden" aria-label="Open menu"><Icon name={mobileOpen ? 'close' : 'menu'} /></button>
+          <button onClick={() => navigate({ view: 'watchlist' })} className={`hidden size-10 place-items-center rounded-xl border bg-white transition hover:border-[#aeb9b1] md:grid ${route.view === 'watchlist' ? 'border-[#789887] text-amber-500' : 'border-[#dfe4df] text-[#4e5c54]'}`} aria-label="Open watchlist" title="Watchlist"><Icon name="star" className="size-[18px]" /></button>
+          {auth && <div className="hidden md:block"><PortfolioNav auth={auth} selectedId={route.view === 'portfolio' || route.view === 'dividends' ? route.portfolioId ?? preferredPortfolioId : preferredPortfolioId} onSelect={selectPortfolio} /></div>}
+          {auth ? <div className="hidden md:block"><UserMenu auth={auth} darkMode={darkMode} onToggleTheme={toggleTheme} onAdmin={() => navigate({ view: 'admin' })} onSignOut={signOut} /></div> : <button onClick={() => setShowModal(true)} className="hidden items-center gap-2 rounded-xl bg-[#173c2c] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(23,60,44,.18)] transition hover:bg-[#205139] md:flex"><Icon name="user" className="size-4" /> Sign in</button>}
+          <button onClick={() => setMobileOpen(!mobileOpen)} className="ml-auto grid size-10 place-items-center rounded-xl border border-[#dfe4df] bg-white md:hidden" aria-label="Open menu"><Icon name={mobileOpen ? 'close' : 'menu'} /></button>
         </div>
-        {mobileOpen && <nav className="border-t border-[#e4e8e4] bg-white px-5 py-3 lg:hidden">
+        {mobileOpen && <nav className="border-t border-[#e4e8e4] bg-white px-5 py-3 md:hidden">
           <form onSubmit={(event) => { submitGlobalSearch(event); setMobileOpen(false) }} className="relative mb-3"><Icon name="search" className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#879089]" /><input value={globalSearch} onChange={(event) => setGlobalSearch(event.target.value)} maxLength={50} className="w-full rounded-xl border border-[#dfe4df] py-3 pl-10 pr-3 text-sm outline-none" placeholder="Search stocks or ETFs" aria-label="Mobile instrument search" /></form>
           <button onClick={() => { selectNav('Overview'); setMobileOpen(false) }} className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-medium hover:bg-[#f3f5f2]"><Icon name="grid" className="size-4 text-[#617068]" />Overview</button>
           <section className="mt-2 border-t border-[#e4e8e4] pt-2"><p className="px-3 pb-1 pt-2 text-[10px] font-bold uppercase tracking-[.13em] text-[#87918b]">Portfolio</p>{auth && <PortfolioNav mobile auth={auth} selectedId={route.view === 'portfolio' || route.view === 'dividends' ? route.portfolioId : undefined} onSelect={(portfolioId) => { selectPortfolio(portfolioId); setMobileOpen(false) }} />}{(['Holdings', 'Transactions', 'Dividends'] as const).map((item) => <button key={item} onClick={() => { selectNav(item); setMobileOpen(false) }} className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-medium hover:bg-[#f3f5f2]"><Icon name={item === 'Holdings' ? 'briefcase' : item === 'Dividends' ? 'grid' : 'activity'} className="size-4 text-[#617068]" />{item}</button>)}</section>

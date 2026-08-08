@@ -23,8 +23,8 @@ function UserMenu({ auth, darkMode, mobile = false, onToggleTheme, onSignOut, on
   return <div ref={menuRef} className={`relative ${mobile ? 'w-full' : ''}`}>
     <button onClick={() => setOpen((current) => !current)} aria-haspopup="menu" aria-expanded={open} className={`flex items-center gap-2 text-sm font-semibold transition ${mobile ? 'w-full rounded-lg px-3 py-3 text-[#15231d] hover:bg-[#f3f5f2] dark:text-[#e8eee9] dark:hover:bg-[#202d26]' : 'rounded-xl bg-[#173c2c] p-2 text-white shadow-[0_8px_20px_rgba(23,60,44,.18)] hover:bg-[#205139] sm:px-3'}`}>
       <span className="grid size-6 place-items-center rounded-full bg-[#d8f768] text-[10px] font-extrabold text-[#173c2c]">{initial}</span>
-      <span className={`${mobile ? 'block max-w-none flex-1 text-left' : 'hidden max-w-24 sm:block'} truncate`}>{auth.user.name}</span>
-      <svg className={`${mobile ? 'block' : 'hidden sm:block'} size-3.5 transition ${open ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6" /></svg>
+      <span className={`${mobile ? 'block max-w-none flex-1 text-left' : 'hidden max-w-24 lg:block'} truncate`}>{auth.user.name}</span>
+      <svg className={`${mobile ? 'block' : 'hidden lg:block'} size-3.5 transition ${open ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6" /></svg>
     </button>
     {open && <div role="menu" className={`${mobile ? 'relative mt-2 w-full shadow-none' : 'absolute right-0 top-[calc(100%+10px)] w-64 shadow-[0_18px_50px_rgba(20,38,29,.2)]'} z-50 overflow-hidden rounded-2xl border border-[#dce3dd] bg-white dark:border-[#35463d] dark:bg-[#18231e]`}>
       <div className="flex items-center gap-3 border-b border-[#e5e9e5] px-4 py-4"><span className="grid size-10 shrink-0 place-items-center rounded-full bg-[#d8f768] text-sm font-extrabold text-[#173c2c]">{initial}</span><span className="min-w-0"><strong className="block truncate text-sm">{auth.user.name}</strong><span className="mt-0.5 block truncate text-xs text-[#7b867f]">{auth.user.email}</span></span></div>

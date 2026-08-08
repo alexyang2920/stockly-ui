@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { apiErrorMessage } from '../api/client'
-import { getDividends, getFinancials, getInstrument, getQuote, getRatios, getSplits, syncDividends, syncQuote, syncSplits, type FinancialPeriod, type RatioBasis } from '../api/instruments'
+import { getDividends, getFinancials, getInstrument, getQuote, getRatios, getSplits, type FinancialPeriod, type RatioBasis } from '../api/instruments'
 import { addWatchlistInstrument, createWatchlist, getWatchlists, removeWatchlistInstrument } from '../api/watchlists'
 import InstrumentMark from '../components/InstrumentMark'
 import type { AuthResponse } from '../types/auth'
@@ -65,8 +65,6 @@ function InstrumentPage({ symbol, auth, onBack, onNeedAuth, onWatchChange, watch
   const [dividendPeriod, setDividendPeriod] = useState<DividendPeriod>('ANNUAL')
   const [splits, setSplits] = useState<StockSplitEvent[]>([])
   const [marketLoading, setMarketLoading] = useState(true)
-  const [marketRefreshing, setMarketRefreshing] = useState(false)
-  const [marketMessage, setMarketMessage] = useState('')
 
   useEffect(() => {
     const controller = new AbortController()
@@ -272,18 +270,6 @@ function InstrumentPage({ symbol, auth, onBack, onNeedAuth, onWatchChange, watch
     }
   }
 
-  const refreshMarketData = async () => {
-    if (!auth) { onNeedAuth(); return }
-    setMarketRefreshing(true); setMarketMessage('')
-    const results = await Promise.allSettled([syncQuote(auth, symbol), syncDividends(auth, symbol), syncSplits(auth, symbol)])
-    if (results[0].status === 'fulfilled') setQuote(results[0].value)
-    if (results[1].status === 'fulfilled') setDividends(results[1].value)
-    if (results[2].status === 'fulfilled') setSplits(results[2].value)
-    const failed = results.find((result) => result.status === 'rejected')
-    if (failed?.status === 'rejected') setMarketMessage(apiErrorMessage(failed.reason, 'Unable to refresh market data.'))
-    setMarketRefreshing(false)
-  }
-
   if (loading) return <main className="mx-auto max-w-[1560px] px-5 py-12 lg:px-8"><div className="h-52 animate-pulse rounded-[24px] bg-white" /></main>
   if (error || !instrument) return <main className="mx-auto max-w-[900px] px-5 py-16 text-center"><div className="rounded-[24px] border border-rose-200 bg-white p-10"><h1 className="text-2xl font-semibold">Instrument unavailable</h1><p className="mt-2 text-[#78837c]">{error || `We could not find ${symbol}.`}</p><button onClick={onBack} className="mt-6 rounded-xl bg-[#173c2c] px-5 py-3 text-sm font-bold text-white">Back to search</button></div></main>
 
@@ -303,9 +289,8 @@ function InstrumentPage({ symbol, auth, onBack, onNeedAuth, onWatchChange, watch
     </section>
 
     <section className="mt-6 overflow-hidden rounded-[22px] border border-[#dfe4df] bg-white">
-      <div className="flex flex-col justify-between gap-4 border-b border-[#e5e9e5] p-5 sm:flex-row sm:items-center md:px-7"><div><h2 className="text-xl font-semibold tracking-[-.025em]">Daily quote</h2><p className="mt-1 text-sm text-[#7a857e]">Latest available end-of-day market data</p></div><button onClick={refreshMarketData} disabled={marketRefreshing} className="self-start rounded-xl border border-[#dce2dd] px-4 py-2.5 text-xs font-bold hover:bg-[#f3f6f3] disabled:opacity-60">{marketRefreshing ? 'Refreshing…' : 'Refresh market data'}</button></div>
+      <div className="border-b border-[#e5e9e5] p-5 md:px-7"><h2 className="text-xl font-semibold tracking-[-.025em]">Daily quote</h2><p className="mt-1 text-sm text-[#7a857e]">Latest available end-of-day market data</p></div>
       {marketLoading ? <div className="h-32 animate-pulse bg-[#f7f9f7]" /> : quote ? <div className="grid gap-px bg-[#e7ebe7] sm:grid-cols-3 lg:grid-cols-6"><QuoteDetail label="Close" value={formatMoney(quote.price, quote.currency)} emphasis /><QuoteDetail label="Open" value={formatOptionalMoney(quote.open, quote.currency)} /><QuoteDetail label="High" value={formatOptionalMoney(quote.high, quote.currency)} /><QuoteDetail label="Low" value={formatOptionalMoney(quote.low, quote.currency)} /><QuoteDetail label="Volume" value={quote.volume == null ? '—' : new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 2 }).format(quote.volume)} /><QuoteDetail label="Market date" value={quote.marketDate} /></div> : <div className="px-6 py-9 text-center"><p className="font-semibold">No quote has been synchronized yet</p><p className="mt-1 text-sm text-[#7a857e]">Sign in and refresh to retrieve the latest daily quote.</p></div>}
-      {marketMessage && <p role="alert" className="border-t border-rose-200 bg-rose-50 px-6 py-3 text-sm text-rose-700">{marketMessage}</p>}
     </section>
 
     <section className="mt-6 overflow-hidden rounded-[22px] border border-[#dfe4df] bg-white">
