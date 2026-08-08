@@ -1,5 +1,5 @@
 import type { AuthResponse } from '../types/auth'
-import type { BulkMarketDataSyncInput, BulkMarketDataSyncResult, ClassificationSyncResult, MarketDataDatasetStatus } from '../types/admin'
+import type { BulkMarketDataSyncInput, BulkMarketDataSyncResult, ClassificationSyncResult, InstrumentCatalogSyncResult, MarketDataDatasetStatus } from '../types/admin'
 import { apiRequest } from './client'
 
 export function getMarketDataStatus(auth: AuthResponse, signal?: AbortSignal) {
@@ -12,4 +12,8 @@ export function syncMarketData(auth: AuthResponse, input: BulkMarketDataSyncInpu
 
 export function syncCompanyClassifications(auth: AuthResponse, limit: number) {
   return apiRequest<ClassificationSyncResult>(`/instruments/classifications/sync?limit=${limit}`, { method: 'POST', auth })
+}
+
+export function syncInstrumentCatalog(auth: AuthResponse) {
+  return apiRequest<InstrumentCatalogSyncResult>('/instruments/sync', { method: 'POST', auth })
 }

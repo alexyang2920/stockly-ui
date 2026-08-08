@@ -17,6 +17,10 @@ export function getFinancials(symbol: string, period: FinancialPeriod, signal?: 
   return apiRequest<FinancialFact[]>(`/instruments/${encodeURIComponent(symbol)}/financials?period=${period}`, { signal })
 }
 
+export function syncFinancials(auth: AuthResponse, symbol: string) {
+  return apiRequest<{ symbol: string, factsImported: number }>(`/instruments/${encodeURIComponent(symbol)}/financials/sync`, { method: 'POST', auth })
+}
+
 export function getRatios(symbol: string, basis: RatioBasis, signal?: AbortSignal) {
   return apiRequest<FinancialRatios>(`/instruments/${encodeURIComponent(symbol)}/ratios?basis=${basis}`, { signal })
 }

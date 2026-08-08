@@ -34,3 +34,11 @@ export type ClassificationSyncResult = {
   failed: number
   remaining: number
 }
+
+export type InstrumentCatalogSyncResult = {
+  received: number
+  inserted: number
+  updated: number
+  unchanged: number
+  skipped: number
+}
