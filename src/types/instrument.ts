@@ -15,6 +15,7 @@ export type Instrument = {
 
 export type FinancialFact = {
   metric: string
+  statementType: 'INCOME_STATEMENT' | 'BALANCE_SHEET' | 'CASH_FLOW'
   periodType: 'ANNUAL' | 'QUARTERLY'
   fiscalYear: number
   fiscalPeriod: string

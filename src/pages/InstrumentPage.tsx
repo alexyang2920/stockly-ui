@@ -22,8 +22,14 @@ type InstrumentPageProps = {
 }
 
 const metricLabels: Record<string, string> = {
-  REVENUE: 'Revenue', GROSS_PROFIT: 'Gross profit', OPERATING_INCOME: 'Operating income', NET_INCOME: 'Net income', DILUTED_EPS: 'Diluted EPS', TOTAL_ASSETS: 'Total assets', CURRENT_ASSETS: 'Current assets', TOTAL_LIABILITIES: 'Total liabilities', CURRENT_LIABILITIES: 'Current liabilities', SHAREHOLDERS_EQUITY: 'Shareholders’ equity', CASH_AND_EQUIVALENTS: 'Cash & equivalents', OPERATING_CASH_FLOW: 'Operating cash flow', CAPITAL_EXPENDITURES: 'Capital expenditures', LONG_TERM_DEBT: 'Long-term debt', SHARES_OUTSTANDING: 'Shares outstanding',
+  REVENUE: 'Revenue', COST_OF_REVENUE: 'Cost of revenue', GROSS_PROFIT: 'Gross profit', OPERATING_EXPENSES: 'Operating expenses', OPERATING_INCOME: 'Operating income', INTEREST_EXPENSE: 'Interest expense', INCOME_BEFORE_TAX: 'Income before tax', INCOME_TAX_EXPENSE: 'Income tax expense', NET_INCOME: 'Net income', DILUTED_EPS: 'Diluted EPS', CASH_AND_EQUIVALENTS: 'Cash & equivalents', ACCOUNTS_RECEIVABLE: 'Accounts receivable', INVENTORY: 'Inventory', CURRENT_ASSETS: 'Current assets', TOTAL_ASSETS: 'Total assets', GOODWILL: 'Goodwill', CURRENT_LIABILITIES: 'Current liabilities', TOTAL_LIABILITIES: 'Total liabilities', LONG_TERM_DEBT: 'Long-term debt', SHAREHOLDERS_EQUITY: 'Shareholders’ equity', SHARES_OUTSTANDING: 'Shares outstanding', OPERATING_CASH_FLOW: 'Operating cash flow', CAPITAL_EXPENDITURES: 'Capital expenditures', INVESTING_CASH_FLOW: 'Investing cash flow', FINANCING_CASH_FLOW: 'Financing cash flow', DIVIDENDS_PAID: 'Dividends paid', SHARE_REPURCHASES: 'Share repurchases',
 }
+
+const statementGroups = [
+  { key: 'INCOME_STATEMENT', title: 'Income statement', description: 'Revenue, profitability, and earnings', metrics: ['REVENUE', 'COST_OF_REVENUE', 'GROSS_PROFIT', 'OPERATING_EXPENSES', 'OPERATING_INCOME', 'INTEREST_EXPENSE', 'INCOME_BEFORE_TAX', 'INCOME_TAX_EXPENSE', 'NET_INCOME', 'DILUTED_EPS'] },
+  { key: 'BALANCE_SHEET', title: 'Balance sheet', description: 'Assets, liabilities, and shareholders’ equity', metrics: ['CASH_AND_EQUIVALENTS', 'ACCOUNTS_RECEIVABLE', 'INVENTORY', 'CURRENT_ASSETS', 'TOTAL_ASSETS', 'GOODWILL', 'CURRENT_LIABILITIES', 'TOTAL_LIABILITIES', 'LONG_TERM_DEBT', 'SHAREHOLDERS_EQUITY', 'SHARES_OUTSTANDING'] },
+  { key: 'CASH_FLOW', title: 'Cash flow statement', description: 'Operating cash generation and capital allocation', metrics: ['OPERATING_CASH_FLOW', 'CAPITAL_EXPENDITURES', 'INVESTING_CASH_FLOW', 'FINANCING_CASH_FLOW', 'DIVIDENDS_PAID', 'SHARE_REPURCHASES'] },
+] as const
 
 function humanize(value: string) {
   return value.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (character) => character.toUpperCase())
@@ -158,8 +164,14 @@ function InstrumentPage({ symbol, auth, onBack, onNeedAuth, onWatchChange, watch
     const allPeriods = [...periodMap.values()].sort((left, right) => right.periodEnd.localeCompare(left.periodEnd))
     const latestFiscalYear = Math.max(...allPeriods.map((item) => item.fiscalYear))
     const periods = allPeriods.filter((item) => item.fiscalYear >= latestFiscalYear - 9)
-    const metrics = [...factMap.keys()].sort((left, right) => (metricLabels[left] ?? left).localeCompare(metricLabels[right] ?? right))
-    return { periods, metrics, factMap }
+    const groups = statementGroups.map((group) => {
+      const configured = group.metrics.filter((metric) => factMap.has(metric))
+      const additional = [...factMap.keys()].filter((metric) => !group.metrics.includes(metric as never)
+        && facts.some((fact) => fact.metric === metric && fact.statementType === group.key))
+        .sort((left, right) => (metricLabels[left] ?? left).localeCompare(metricLabels[right] ?? right))
+      return { ...group, metrics: [...configured, ...additional] }
+    }).filter((group) => group.metrics.length > 0)
+    return { periods, groups, metricCount: groups.reduce((count, group) => count + group.metrics.length, 0), factMap }
   }, [facts, loadedPeriod])
 
   const paysMonthlyDividends = dividends.some((event) => event.frequency === 12)
@@ -311,8 +323,8 @@ function InstrumentPage({ symbol, auth, onBack, onNeedAuth, onWatchChange, watch
 
       <section className="mt-6 overflow-hidden rounded-[22px] border border-[#dfe4df] bg-white">
         <div className="flex flex-col justify-between gap-4 border-b border-[#e5e9e5] p-5 sm:flex-row sm:items-center md:px-7"><div><h2 className="text-xl font-semibold tracking-[-.025em]">Financial history</h2><p className="mt-1 text-sm text-[#7a857e]">Latest 10 fiscal years from synchronized SEC filings</p></div><Segmented values={['ANNUAL', 'QUARTERLY']} active={period} onChange={changePeriod} /></div>
-        {factsMessage && financialTable.metrics.length > 0 && <div role="alert" className="border-b border-rose-200 bg-rose-50 px-6 py-3 text-sm text-rose-700">{factsMessage}</div>}
-        {financialTable.metrics.length > 0 ? <div className={`relative overflow-x-auto transition-opacity ${factsLoading ? 'opacity-55' : 'opacity-100'}`} aria-busy={factsLoading}><table className="text-left" style={{ minWidth: `${240 + financialTable.periods.length * 132}px`, width: '100%' }}><thead className="bg-[#fafbf9] text-[10px] uppercase tracking-[.1em] text-[#849088]"><tr><th className="sticky left-0 z-10 min-w-60 border-r border-[#e4e8e4] bg-[#fafbf9] px-7 py-3 font-bold">Metric</th>{financialTable.periods.map((item) => <th key={item.key} className="min-w-33 px-4 py-3 text-right font-bold"><span className="block text-[#59675f]">{item.label}</span><span className="mt-1 block text-[9px] font-medium normal-case tracking-normal text-[#9aa39d]">{item.periodEnd}</span></th>)}</tr></thead><tbody>{financialTable.metrics.map((metric, rowIndex) => <tr key={metric} className="border-t border-[#ecefec] hover:bg-[#fafcf9] dark:hover:bg-[#1a2520]"><FinancialMetricCell label={metricLabels[metric] ?? humanize(metric)} periods={financialTable.periods} factsByPeriod={financialTable.factMap.get(metric)} rowIndex={rowIndex} rowCount={financialTable.metrics.length} />{financialTable.periods.map((item) => { const fact = financialTable.factMap.get(metric)?.get(item.key); return <td key={item.key} className="px-4 py-4 text-right text-sm font-bold tabular-nums whitespace-nowrap">{fact ? formatFact(fact.value, fact.unit) : <span className="font-normal text-[#b0b7b2]">—</span>}</td> })}</tr>)}</tbody></table></div> : factsLoading ? <div className="h-72 animate-pulse bg-[#f7f9f7]" aria-label="Loading financial history" /> : <FinancialEmpty message={factsMessage} />}
+        {factsMessage && financialTable.metricCount > 0 && <div role="alert" className="border-b border-rose-200 bg-rose-50 px-6 py-3 text-sm text-rose-700">{factsMessage}</div>}
+        {financialTable.metricCount > 0 ? <div className={`relative transition-opacity ${factsLoading ? 'opacity-55' : 'opacity-100'}`} aria-busy={factsLoading}>{financialTable.groups.map((group) => <FinancialStatementTable key={group.key} title={group.title} description={group.description} metrics={group.metrics} periods={financialTable.periods} factMap={financialTable.factMap} />)}</div> : factsLoading ? <div className="h-72 animate-pulse bg-[#f7f9f7]" aria-label="Loading financial history" /> : <FinancialEmpty message={factsMessage} />}
       </section>
     </>}
   </main>
@@ -364,6 +376,10 @@ function QuoteDetail({ label, value, emphasis = false }: { label: string, value:
 
 function Segmented({ values, active, onChange }: { values: string[], active: string, onChange: (value: string) => void }) {
   return <div className="flex rounded-xl bg-[#eef1ee] p-1">{values.map((value) => <button key={value} onClick={() => onChange(value)} className={`rounded-lg px-3 py-2 text-[11px] font-bold transition ${active === value ? 'bg-white text-[#173c2c] shadow-sm' : 'text-[#748078]'}`}>{value}</button>)}</div>
+}
+
+function FinancialStatementTable({ title, description, metrics, periods, factMap }: { title: string, description: string, metrics: string[], periods: FinancialPeriodColumn[], factMap: Map<string, Map<string, FinancialFact>> }) {
+  return <section className="border-b border-[#e5e9e5] last:border-b-0"><div className="bg-[#f7f9f7] px-7 py-4"><h3 className="text-sm font-bold tracking-[-.01em]">{title}</h3><p className="mt-1 text-xs text-[#7a857e]">{description}</p></div><div className="overflow-x-auto"><table className="text-left" style={{ minWidth: `${240 + periods.length * 132}px`, width: '100%' }}><thead className="bg-[#fafbf9] text-[10px] uppercase tracking-[.1em] text-[#849088]"><tr><th className="sticky left-0 z-10 min-w-60 border-r border-[#e4e8e4] bg-[#fafbf9] px-7 py-3 font-bold">Metric</th>{periods.map((item) => <th key={item.key} className="min-w-33 px-4 py-3 text-right font-bold"><span className="block text-[#59675f]">{item.label}</span><span className="mt-1 block text-[9px] font-medium normal-case tracking-normal text-[#9aa39d]">{item.periodEnd}</span></th>)}</tr></thead><tbody>{metrics.map((metric, rowIndex) => <tr key={metric} className="border-t border-[#ecefec] hover:bg-[#fafcf9] dark:hover:bg-[#1a2520]"><FinancialMetricCell label={metricLabels[metric] ?? humanize(metric)} periods={periods} factsByPeriod={factMap.get(metric)} rowIndex={rowIndex} rowCount={metrics.length} />{periods.map((item) => { const fact = factMap.get(metric)?.get(item.key); return <td key={item.key} className="px-4 py-4 text-right text-sm font-bold tabular-nums whitespace-nowrap">{fact ? formatFact(fact.value, fact.unit) : <span className="font-normal text-[#b0b7b2]">—</span>}</td> })}</tr>)}</tbody></table></div></section>
 }
 
 function FinancialMetricCell({ label, periods, factsByPeriod, rowIndex, rowCount }: { label: string, periods: FinancialPeriodColumn[], factsByPeriod?: Map<string, FinancialFact>, rowIndex: number, rowCount: number }) {
