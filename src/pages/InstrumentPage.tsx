@@ -1,15 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { apiErrorMessage } from '../api/client'
-import { getDividends, getFinancials, getInstrument, getQuote, getRatios, getSplits, type FinancialPeriod, type RatioBasis } from '../api/instruments'
+import { getDividends, getFinancials, getInstrument, getQuote, getSplits, type FinancialPeriod } from '../api/instruments'
 import { addWatchlistInstrument, createWatchlist, getWatchlists, removeWatchlistInstrument } from '../api/watchlists'
 import InstrumentMark from '../components/InstrumentMark'
 import type { AuthResponse } from '../types/auth'
-import type { DividendEvent, FinancialFact, FinancialRatios, Instrument, InstrumentQuote, StockSplitEvent, Watchlist } from '../types/instrument'
+import type { DividendEvent, FinancialFact, Instrument, InstrumentQuote, StockSplitEvent, Watchlist } from '../types/instrument'
 
 type Period = FinancialPeriod
-type Basis = RatioBasis
 type DividendPeriod = 'ANNUAL' | 'QUARTERLY' | 'MONTHLY'
-type DetailTab = 'dividends' | 'splits' | 'ratios' | 'financials'
+type DetailTab = 'dividends' | 'splits' | 'financials'
 type FinancialPeriodColumn = { key: string, label: string, periodEnd: string, fiscalYear: number }
 type DividendChartPoint = { key: string, label: string, year: number, quarter?: number, month?: number, amount: number, change: number | null }
 
@@ -72,25 +71,15 @@ function formatFact(value: number, unit: string) {
   return new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 2 }).format(value)
 }
 
-function formatRatio(key: string, value: number) {
-  if (key === 'freeCashFlow') return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', notation: 'compact', maximumFractionDigits: 1 }).format(value)
-  if (/margin|return/i.test(key)) return `${(value * 100).toFixed(2)}%`
-  return `${value.toFixed(2)}×`
-}
-
 function InstrumentPage({ symbol, auth, onBack, onNeedAuth, onWatchChange, watched }: InstrumentPageProps) {
   const [instrument, setInstrument] = useState<Instrument | null>(null)
   const [facts, setFacts] = useState<FinancialFact[]>([])
-  const [ratios, setRatios] = useState<FinancialRatios | null>(null)
-  const [period, setPeriod] = useState<Period>('ANNUAL')
-  const [loadedPeriod, setLoadedPeriod] = useState<Period>('ANNUAL')
-  const [basis, setBasis] = useState<Basis>('TTM')
+  const [period, setPeriod] = useState<Period>('QUARTERLY')
+  const [loadedPeriod, setLoadedPeriod] = useState<Period>('QUARTERLY')
   const [loading, setLoading] = useState(true)
   const [factsLoading, setFactsLoading] = useState(true)
-  const [ratiosLoading, setRatiosLoading] = useState(true)
   const [error, setError] = useState('')
   const [factsMessage, setFactsMessage] = useState('')
-  const [ratiosMessage, setRatiosMessage] = useState('')
   const [watchlists, setWatchlists] = useState<Watchlist[]>([])
   const [selectedWatchlistId, setSelectedWatchlistId] = useState('')
   const [watchlistsLoading, setWatchlistsLoading] = useState(Boolean(auth))
@@ -98,7 +87,7 @@ function InstrumentPage({ symbol, auth, onBack, onNeedAuth, onWatchChange, watch
   const [watchError, setWatchError] = useState('')
   const [quote, setQuote] = useState<InstrumentQuote | null>(null)
   const [dividends, setDividends] = useState<DividendEvent[]>([])
-  const [dividendPeriod, setDividendPeriod] = useState<DividendPeriod>('ANNUAL')
+  const [dividendPeriod, setDividendPeriod] = useState<DividendPeriod>('QUARTERLY')
   const [splits, setSplits] = useState<StockSplitEvent[]>([])
   const [marketLoading, setMarketLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<DetailTab>('financials')
@@ -129,19 +118,6 @@ function InstrumentPage({ symbol, auth, onBack, onNeedAuth, onWatchChange, watch
       .finally(() => { if (!controller.signal.aborted) setFactsLoading(false) })
     return () => controller.abort()
   }, [period, symbol])
-
-  useEffect(() => {
-    const controller = new AbortController()
-    getRatios(symbol, basis, controller.signal)
-      .then(setRatios)
-      .catch((reason: unknown) => {
-        if (reason instanceof DOMException && reason.name === 'AbortError') return
-        setRatios(null)
-        setRatiosMessage(apiErrorMessage(reason, 'Financial ratios are unavailable'))
-      })
-      .finally(() => { if (!controller.signal.aborted) setRatiosLoading(false) })
-    return () => controller.abort()
-  }, [basis, symbol])
 
   useEffect(() => {
     if (!auth) return
@@ -288,12 +264,6 @@ function InstrumentPage({ symbol, auth, onBack, onNeedAuth, onWatchChange, watch
     setPeriod(value as Period)
   }
 
-  const changeBasis = (value: string) => {
-    setRatiosLoading(true)
-    setRatiosMessage('')
-    setBasis(value as Basis)
-  }
-
   const selectedWatchlist = watchlists.find((watchlist) => watchlist.id === selectedWatchlistId)
   const isInSelectedWatchlist = selectedWatchlist?.instruments.some((item) => item.symbol === symbol) ?? false
 
@@ -355,7 +325,7 @@ function InstrumentPage({ symbol, auth, onBack, onNeedAuth, onWatchChange, watch
     </section>
 
       <nav className="mb-6 mt-6 flex overflow-x-auto border-b border-[#dfe4df]" aria-label="Instrument details">
-        {([['financials', 'Financials'], ['dividends', 'Dividend history'], ['ratios', 'Ratios'], ['splits', 'Split history']] as const).map(([key, label]) => <button key={key} onClick={() => setActiveTab(key)} className={`relative min-w-max px-4 py-4 text-sm font-bold transition-colors after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:transition ${activeTab === key ? 'text-[#173c2c] after:bg-[#285d43] dark:text-[#b8e2c9]' : 'text-[#78837c] after:bg-transparent hover:bg-[#f7f9f7] hover:text-[#285d43]'}`} aria-current={activeTab === key ? 'page' : undefined}>{label}</button>)}
+        {([['financials', 'Financials'], ['dividends', 'Dividend history'], ['splits', 'Split history']] as const).map(([key, label]) => <button key={key} onClick={() => setActiveTab(key)} className={`relative min-w-max px-4 py-4 text-sm font-bold transition-colors after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:transition ${activeTab === key ? 'text-[#173c2c] after:bg-[#285d43] dark:text-[#b8e2c9]' : 'text-[#78837c] after:bg-transparent hover:bg-[#f7f9f7] hover:text-[#285d43]'}`} aria-current={activeTab === key ? 'page' : undefined}>{label}</button>)}
       </nav>
 
     {activeTab === 'dividends' && <section className="overflow-hidden rounded-[22px] border border-[#dfe4df] bg-white">
@@ -368,12 +338,7 @@ function InstrumentPage({ symbol, auth, onBack, onNeedAuth, onWatchChange, watch
       {marketLoading ? <div className="h-32 animate-pulse bg-[#f7f9f7]" /> : splits.length ? <div className="divide-y divide-[#ecefec]">{splits.map((split) => <div key={split.id} className="flex items-center justify-between gap-4 px-6 py-4"><div><p className="text-sm font-semibold">{humanize(split.adjustmentType)}</p><p className="mt-1 text-xs text-[#7a857e]">Effective {split.executionDate}</p></div><span className="rounded-xl bg-[#edf3ee] px-3 py-2 text-sm font-bold tabular-nums">{split.splitTo}:{split.splitFrom}</span></div>)}</div> : <div className="px-6 py-9 text-center text-sm text-[#7a857e]">No stock splits found.</div>}
     </section>}
 
-    {(activeTab === 'ratios' || activeTab === 'financials') && instrument.instrumentType === 'ETF' ? <section className="rounded-[22px] border border-[#dce2dd] bg-[#eef4ef] p-7"><h2 className="text-lg font-semibold">ETF analytics are coming next</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-[#69756d]">SEC company financial statements do not apply to ETFs. Fund holdings, expense ratio, AUM, and NAV require a separate fund-data provider.</p></section> : <>
-      {activeTab === 'ratios' && <section className="rounded-[22px] border border-[#dfe4df] bg-white p-5 md:p-7">
-        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center"><div><h2 className="text-xl font-semibold tracking-[-.025em]">Financial ratios</h2><p className="mt-1 text-sm text-[#7a857e]">Calculated from synchronized SEC filings</p></div><Segmented values={['TTM', 'ANNUAL', 'QUARTERLY']} active={basis} onChange={changeBasis} /></div>
-        {ratiosLoading ? <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{[1, 2, 3, 4].map((item) => <div key={item} className="h-24 animate-pulse rounded-2xl bg-[#f1f3f1]" />)}</div> : ratios && Object.keys(ratios.ratios).length ? <><div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{Object.entries(ratios.ratios).map(([key, value]) => <div key={key} className="rounded-2xl border border-[#e3e7e3] bg-[#fafbf9] p-4"><p className="text-xs font-semibold text-[#78837c]">{humanize(key)}</p><p className="mt-2 text-xl font-semibold tracking-[-.03em]">{formatRatio(key, value)}</p></div>)}</div><p className="mt-4 text-xs text-[#89928c]">As of {ratios.asOfDate}</p></> : <FinancialEmpty message={ratiosMessage} />}
-      </section>}
-
+    {activeTab === 'financials' && instrument.instrumentType === 'ETF' ? <section className="rounded-[22px] border border-[#dce2dd] bg-[#eef4ef] p-7"><h2 className="text-lg font-semibold">ETF analytics are coming next</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-[#69756d]">SEC company financial statements do not apply to ETFs. Fund holdings, expense ratio, AUM, and NAV require a separate fund-data provider.</p></section> : <>
       {activeTab === 'financials' && <section className="overflow-hidden rounded-[22px] border border-[#dfe4df] bg-white">
         <div className="flex flex-col justify-between gap-4 border-b border-[#e5e9e5] p-5 sm:flex-row sm:items-center md:px-7"><div><h2 className="text-xl font-semibold tracking-[-.025em]">Financial history</h2><div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1"><p className="text-sm text-[#7a857e]">Latest 10 fiscal years from synchronized SEC filings</p>{secCompanyFactsUrl && <a href={secCompanyFactsUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-bold text-[#285d43] underline decoration-[#a8b9ae] underline-offset-4 hover:text-[#173c2c] dark:text-[#8dd0aa]" title="Open the SEC Company Facts JSON used by Stockly">SEC company facts JSON<svg className="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 5h5v5M10 14 19 5M19 14v5H5V5h5" /></svg></a>}</div></div><Segmented values={['ANNUAL', 'QUARTERLY']} active={period} onChange={changePeriod} /></div>
         {factsMessage && financialTable.metricCount > 0 && <div role="alert" className="border-b border-rose-200 bg-rose-50 px-6 py-3 text-sm text-rose-700">{factsMessage}</div>}

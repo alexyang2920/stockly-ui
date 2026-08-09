@@ -26,14 +26,6 @@ export type FinancialFact = {
   filedAt: string
 }
 
-export type FinancialRatios = {
-  symbol: string
-  basis: 'ANNUAL' | 'QUARTERLY' | 'TTM'
-  asOfDate: string
-  sourcePeriods: string[]
-  ratios: Record<string, number>
-}
-
 export type InstrumentQuote = {
   symbol: string
   price: number

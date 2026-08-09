@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import AuthModal from './components/AuthModal'
 import InstrumentMark from './components/InstrumentMark'
+import HeaderInstrumentSearch from './components/HeaderInstrumentSearch'
 import PortfolioNav from './components/PortfolioNav'
 import UserMenu from './components/UserMenu'
 import { getUserPreferences, updateUserPreferences } from './api/users'
@@ -10,7 +11,6 @@ import WatchlistTable from './components/WatchlistTable'
 import InstrumentPage from './pages/InstrumentPage'
 import PortfolioPage from './pages/PortfolioPage'
 import AdminPage from './pages/AdminPage'
-import SearchResultsPage from './pages/SearchResultsPage'
 import DividendCalendarPage from './pages/DividendCalendarPage'
 import OverviewPage from './pages/OverviewPage'
 import WatchlistPage from './pages/WatchlistPage'
@@ -18,12 +18,11 @@ import type { AuthResponse } from './types/auth'
 import type { Instrument } from './types/instrument'
 import './App.css'
 
-type Route = { view: 'home' } | { view: 'watchlist' } | { view: 'search', query: string } | { view: 'instrument', symbol: string } | { view: 'portfolio', section: 'holdings' | 'transactions', portfolioId?: string, addTransaction: boolean } | { view: 'dividends', portfolioId?: string } | { view: 'admin' }
+type Route = { view: 'home' } | { view: 'watchlist' } | { view: 'instrument', symbol: string } | { view: 'portfolio', section: 'holdings' | 'transactions', portfolioId?: string, addTransaction: boolean } | { view: 'dividends', portfolioId?: string } | { view: 'admin' }
 
 function routeFromLocation(): Route {
   const instrumentMatch = window.location.pathname.match(/^\/instruments\/([^/]+)$/)
   if (instrumentMatch) return { view: 'instrument', symbol: decodeURIComponent(instrumentMatch[1]).toUpperCase() }
-  if (window.location.pathname === '/search') return { view: 'search', query: new URLSearchParams(window.location.search).get('q')?.slice(0, 50) || '' }
   if (window.location.pathname === '/admin') return { view: 'admin' }
   if (window.location.pathname === '/watchlist') return { view: 'watchlist' }
   if (window.location.pathname === '/portfolio/dividends') return { view: 'dividends' }
@@ -114,7 +113,6 @@ function App() {
   const [toast, setToast] = useState('')
   const [auth, setAuth] = useState<AuthResponse | null>(readStoredAuth)
   const [route, setRoute] = useState<Route>(routeFromLocation)
-  const [globalSearch, setGlobalSearch] = useState(route.view === 'search' ? route.query : '')
 
   useEffect(() => {
     if (!toast) return
@@ -180,17 +178,10 @@ function App() {
   }
 
   const navigate = (nextRoute: Route) => {
-    const url = nextRoute.view === 'home' ? '/' : nextRoute.view === 'watchlist' ? '/watchlist' : nextRoute.view === 'search' ? `/search?q=${encodeURIComponent(nextRoute.query)}` : nextRoute.view === 'instrument' ? `/instruments/${encodeURIComponent(nextRoute.symbol)}` : nextRoute.view === 'admin' ? '/admin' : nextRoute.view === 'dividends' ? '/portfolio/dividends' : `/portfolio/${nextRoute.section}${nextRoute.addTransaction ? '?add=transaction' : ''}`
+    const url = nextRoute.view === 'home' ? '/' : nextRoute.view === 'watchlist' ? '/watchlist' : nextRoute.view === 'instrument' ? `/instruments/${encodeURIComponent(nextRoute.symbol)}` : nextRoute.view === 'admin' ? '/admin' : nextRoute.view === 'dividends' ? '/portfolio/dividends' : `/portfolio/${nextRoute.section}${nextRoute.addTransaction ? '?add=transaction' : ''}`
     window.history.pushState({}, '', url)
     setRoute(nextRoute)
-    if (nextRoute.view === 'search') setGlobalSearch(nextRoute.query)
     window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
-
-  const submitGlobalSearch = (event: FormEvent) => {
-    event.preventDefault()
-    const query = globalSearch.trim().slice(0, 50)
-    if (query) navigate({ view: 'search', query })
   }
 
   const selectNav = (item: string) => {
@@ -235,18 +226,14 @@ function App() {
             </div>
           </nav>
 
-          <form onSubmit={submitGlobalSearch} className="relative ml-auto hidden w-44 md:block lg:w-48 xl:w-56">
-            <Icon name="search" className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-[#879089]" />
-            <input id="global-search" value={globalSearch} onChange={(event) => setGlobalSearch(event.target.value)} maxLength={50} className="w-full rounded-xl border border-[#dfe4df] bg-white py-2.5 pl-9 pr-9 text-[11px] shadow-sm outline-none placeholder:text-[#879089] focus:border-[#789887] focus:ring-4 focus:ring-[#e2ebe5]" placeholder="Search stocks or ETFs" aria-label="Search stocks or ETFs" />
-            <button className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg px-2 py-1 text-xs font-bold text-[#526158] hover:bg-[#eef2ee]" aria-label="Submit search">↵</button>
-          </form>
+          <HeaderInstrumentSearch className="ml-auto hidden w-44 md:block lg:w-48 xl:w-56" onSelect={(symbol) => navigate({ view: 'instrument', symbol })} />
           <button onClick={() => navigate({ view: 'watchlist' })} className={`hidden size-10 place-items-center rounded-xl border bg-white transition hover:border-[#aeb9b1] md:grid ${route.view === 'watchlist' ? 'border-[#789887] text-amber-500' : 'border-[#dfe4df] text-[#4e5c54]'}`} aria-label="Open watchlist" title="Watchlist"><Icon name="star" className="size-[18px]" /></button>
           {auth && <div className="hidden md:block"><PortfolioNav auth={auth} selectedId={route.view === 'portfolio' || route.view === 'dividends' ? route.portfolioId ?? preferredPortfolioId : preferredPortfolioId} onSelect={selectPortfolio} /></div>}
           {auth ? <div className="hidden md:block"><UserMenu auth={auth} darkMode={darkMode} onToggleTheme={toggleTheme} onAdmin={() => navigate({ view: 'admin' })} onSignOut={signOut} /></div> : <button onClick={() => setShowModal(true)} className="hidden items-center gap-2 rounded-xl bg-[#173c2c] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(23,60,44,.18)] transition hover:bg-[#205139] md:flex"><Icon name="user" className="size-4" /> Sign in</button>}
           <button onClick={() => setMobileOpen(!mobileOpen)} className="ml-auto grid size-10 place-items-center rounded-xl border border-[#dfe4df] bg-white md:hidden" aria-label="Open menu"><Icon name={mobileOpen ? 'close' : 'menu'} /></button>
         </div>
         {mobileOpen && <nav className="border-t border-[#e4e8e4] bg-white px-5 py-3 md:hidden">
-          <form onSubmit={(event) => { submitGlobalSearch(event); setMobileOpen(false) }} className="relative mb-3"><Icon name="search" className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#879089]" /><input value={globalSearch} onChange={(event) => setGlobalSearch(event.target.value)} maxLength={50} className="w-full rounded-xl border border-[#dfe4df] py-3 pl-10 pr-3 text-sm outline-none" placeholder="Search stocks or ETFs" aria-label="Mobile instrument search" /></form>
+          <HeaderInstrumentSearch mobile className="mb-3" onSelect={(symbol) => { navigate({ view: 'instrument', symbol }); setMobileOpen(false) }} />
           <button onClick={() => { selectNav('Overview'); setMobileOpen(false) }} className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-medium hover:bg-[#f3f5f2]"><Icon name="grid" className="size-4 text-[#617068]" />Overview</button>
           <section className="mt-2 border-t border-[#e4e8e4] pt-2"><p className="px-3 pb-1 pt-2 text-[10px] font-bold uppercase tracking-[.13em] text-[#87918b]">Portfolio</p>{auth && <PortfolioNav mobile auth={auth} selectedId={route.view === 'portfolio' || route.view === 'dividends' ? route.portfolioId : undefined} onSelect={(portfolioId) => { selectPortfolio(portfolioId); setMobileOpen(false) }} />}{(['Holdings', 'Transactions', 'Dividends'] as const).map((item) => <button key={item} onClick={() => { selectNav(item); setMobileOpen(false) }} className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-medium hover:bg-[#f3f5f2]"><Icon name={item === 'Holdings' ? 'briefcase' : item === 'Dividends' ? 'grid' : 'activity'} className="size-4 text-[#617068]" />{item}</button>)}</section>
           <section className="mt-2 border-t border-[#e4e8e4] pt-2"><p className="px-3 pb-1 pt-2 text-[10px] font-bold uppercase tracking-[.13em] text-[#87918b]">Research</p><button onClick={() => { navigate({ view: 'watchlist' }); setMobileOpen(false) }} className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-medium hover:bg-[#f3f5f2]"><Icon name="star" className="size-4 text-amber-500" />Watchlist</button></section>
@@ -305,9 +292,8 @@ function App() {
         </section>
       </main>}
 
-      {route.view === 'search' && <SearchResultsPage key={route.query} query={route.query} onSearch={(query) => navigate({ view: 'search', query })} onSelect={(symbol) => navigate({ view: 'instrument', symbol })} />}
       {route.view === 'watchlist' && <WatchlistPage auth={auth} onNeedAuth={() => setShowModal(true)} onSelectInstrument={(symbol) => navigate({ view: 'instrument', symbol })} onSymbolsChange={syncWatchlistSymbols} />}
-      {route.view === 'instrument' && <InstrumentPage key={`${route.symbol}-${auth?.user.id ?? 'guest'}`} symbol={route.symbol} auth={auth} watched={watching.has(route.symbol)} onNeedAuth={() => setShowModal(true)} onWatchChange={(symbol, isWatched) => { setWatching((current) => { const next = new Set(current); if (isWatched) next.add(symbol); else next.delete(symbol); return next }); setToast(isWatched ? `${symbol} added to watchlist` : `${symbol} removed from watchlist`) }} onBack={() => window.history.length > 1 ? window.history.back() : navigate({ view: 'search', query: route.symbol })} />}
+      {route.view === 'instrument' && <InstrumentPage key={`${route.symbol}-${auth?.user.id ?? 'guest'}`} symbol={route.symbol} auth={auth} watched={watching.has(route.symbol)} onNeedAuth={() => setShowModal(true)} onWatchChange={(symbol, isWatched) => { setWatching((current) => { const next = new Set(current); if (isWatched) next.add(symbol); else next.delete(symbol); return next }); setToast(isWatched ? `${symbol} added to watchlist` : `${symbol} removed from watchlist`) }} onBack={() => window.history.length > 1 ? window.history.back() : navigate({ view: 'home' })} />}
       {route.view === 'portfolio' && <PortfolioPage key={`${auth?.user.id ?? 'guest'}-${route.section}-${route.portfolioId ?? preferredPortfolioId ?? 'default'}-${route.addTransaction}`} auth={auth} section={route.section} requestedPortfolioId={route.portfolioId ?? preferredPortfolioId} startWithTransaction={route.addTransaction} onNeedAuth={() => setShowModal(true)} onSelectInstrument={(symbol) => navigate({ view: 'instrument', symbol })} />}
       {route.view === 'dividends' && <DividendCalendarPage key={`${auth?.user.id ?? 'guest'}-${route.portfolioId ?? preferredPortfolioId ?? 'default'}`} auth={auth} requestedPortfolioId={route.portfolioId ?? preferredPortfolioId} onNeedAuth={() => setShowModal(true)} onSelectInstrument={(symbol) => navigate({ view: 'instrument', symbol })} />}
       {route.view === 'admin' && <AdminPage auth={auth} onNeedAuth={() => setShowModal(true)} />}

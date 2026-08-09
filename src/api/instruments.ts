@@ -1,9 +1,8 @@
 import type { AuthResponse } from '../types/auth'
-import type { DividendEvent, FinancialFact, FinancialRatios, Instrument, InstrumentQuote, StockSplitEvent } from '../types/instrument'
+import type { DividendEvent, FinancialFact, Instrument, InstrumentQuote, StockSplitEvent } from '../types/instrument'
 import { apiRequest } from './client'
 
 export type FinancialPeriod = 'ANNUAL' | 'QUARTERLY'
-export type RatioBasis = 'TTM' | 'ANNUAL' | 'QUARTERLY'
 
 export function searchInstruments(query: string, signal?: AbortSignal) {
   return apiRequest<Instrument[]>(`/instruments?query=${encodeURIComponent(query)}`, { signal })
@@ -19,10 +18,6 @@ export function getFinancials(symbol: string, period: FinancialPeriod, signal?: 
 
 export function syncFinancials(auth: AuthResponse, symbol: string) {
   return apiRequest<{ symbol: string, factsImported: number }>(`/instruments/${encodeURIComponent(symbol)}/financials/sync`, { method: 'POST', auth })
-}
-
-export function getRatios(symbol: string, basis: RatioBasis, signal?: AbortSignal) {
-  return apiRequest<FinancialRatios>(`/instruments/${encodeURIComponent(symbol)}/ratios?basis=${basis}`, { signal })
 }
 
 export function getQuote(symbol: string, signal?: AbortSignal) {
