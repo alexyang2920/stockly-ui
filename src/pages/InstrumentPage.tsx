@@ -15,7 +15,6 @@ type DividendChartPoint = { key: string, label: string, year: number, quarter?: 
 type InstrumentPageProps = {
   symbol: string
   auth: AuthResponse | null
-  onBack: () => void
   onNeedAuth: () => void
   onWatchChange: (symbol: string, watched: boolean) => void
   watched: boolean
@@ -71,7 +70,7 @@ function formatFact(value: number, unit: string) {
   return new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 2 }).format(value)
 }
 
-function InstrumentPage({ symbol, auth, onBack, onNeedAuth, onWatchChange, watched }: InstrumentPageProps) {
+function InstrumentPage({ symbol, auth, onNeedAuth, onWatchChange, watched }: InstrumentPageProps) {
   const [instrument, setInstrument] = useState<Instrument | null>(null)
   const [facts, setFacts] = useState<FinancialFact[]>([])
   const [period, setPeriod] = useState<Period>('QUARTERLY')
@@ -302,12 +301,11 @@ function InstrumentPage({ symbol, auth, onBack, onNeedAuth, onWatchChange, watch
   }
 
   if (loading) return <main className="mx-auto max-w-[1560px] px-5 py-12 lg:px-8"><div className="h-52 animate-pulse rounded-[24px] bg-white" /></main>
-  if (error || !instrument) return <main className="mx-auto max-w-[900px] px-5 py-16 text-center"><div className="rounded-[24px] border border-rose-200 bg-white p-10"><h1 className="text-2xl font-semibold">Instrument unavailable</h1><p className="mt-2 text-[#78837c]">{error || `We could not find ${symbol}.`}</p><button onClick={onBack} className="mt-6 rounded-xl bg-[#173c2c] px-5 py-3 text-sm font-bold text-white">Back to search</button></div></main>
+  if (error || !instrument) return <main className="mx-auto max-w-[900px] px-5 py-16 text-center"><div className="rounded-[24px] border border-rose-200 bg-white p-10"><h1 className="text-2xl font-semibold">Instrument unavailable</h1><p className="mt-2 text-[#78837c]">{error || `We could not find ${symbol}.`}</p></div></main>
   const cikDigits = instrument.cik?.replace(/\D/g, '')
   const secCompanyFactsUrl = cikDigits ? `https://data.sec.gov/api/xbrl/companyfacts/CIK${cikDigits.padStart(10, '0')}.json` : null
 
   return <main className="mx-auto max-w-[1560px] px-5 py-8 lg:px-8 lg:py-11">
-    <button onClick={onBack} className="mb-7 flex items-center gap-2 text-sm font-semibold text-[#68756d] hover:text-[#173c2c]"><svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M11 18l-6-6 6-6" /></svg> Back </button>
 
     <section className="rounded-[24px] border border-[#dce2dd] bg-white p-6 shadow-[0_12px_40px_rgba(23,39,30,.035)] md:p-8">
       <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-start">
