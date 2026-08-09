@@ -23,12 +23,13 @@ type InstrumentPageProps = {
 }
 
 const metricLabels: Record<string, string> = {
-  REVENUE: 'Revenue', COST_OF_REVENUE: 'Cost of revenue', GROSS_PROFIT: 'Gross profit', OPERATING_EXPENSES: 'Operating expenses', OPERATING_INCOME: 'Operating income', INTEREST_EXPENSE: 'Interest expense', INCOME_BEFORE_TAX: 'Income before tax', INCOME_TAX_EXPENSE: 'Income tax expense', NET_INCOME: 'Net income', DILUTED_EPS: 'Diluted EPS', CASH_AND_EQUIVALENTS: 'Cash & equivalents', ACCOUNTS_RECEIVABLE: 'Accounts receivable', INVENTORY: 'Inventory', CURRENT_ASSETS: 'Current assets', TOTAL_ASSETS: 'Total assets', GOODWILL: 'Goodwill', CURRENT_LIABILITIES: 'Current liabilities', TOTAL_LIABILITIES: 'Total liabilities', CURRENT_DEBT: 'Current debt', LONG_TERM_DEBT: 'Long-term debt', TOTAL_DEBT: 'Total debt', SHAREHOLDERS_EQUITY: 'Book value (shareholders’ equity)', SHARES_OUTSTANDING: 'Shares outstanding', OPERATING_CASH_FLOW: 'Operating cash flow', CAPITAL_EXPENDITURES: 'Capital expenditures', FREE_CASH_FLOW: 'Free cash flow',
+  REVENUE: 'Revenue', COST_OF_REVENUE: 'Cost of revenue', TOTAL_COSTS_AND_EXPENSES: 'Total costs & expenses', GROSS_PROFIT: 'Gross profit', OPERATING_EXPENSES: 'Operating expenses', OPERATING_INCOME: 'Operating income', INTEREST_EXPENSE: 'Interest expense', INCOME_BEFORE_TAX: 'Income before tax', INCOME_TAX_EXPENSE: 'Income tax expense', NET_INCOME: 'Net income', DILUTED_EPS: 'Diluted EPS', CASH_AND_EQUIVALENTS: 'Cash & equivalents', CURRENT_ASSETS: 'Current assets', TOTAL_ASSETS: 'Total assets', CURRENT_LIABILITIES: 'Current liabilities', TOTAL_LIABILITIES: 'Total liabilities', CURRENT_DEBT: 'Current debt', LONG_TERM_DEBT: 'Long-term debt', TOTAL_DEBT: 'Total debt', SHAREHOLDERS_EQUITY: 'Book value (shareholders’ equity)', OPERATING_CASH_FLOW: 'Operating cash flow', CAPITAL_EXPENDITURES: 'Capital expenditures', FREE_CASH_FLOW: 'Free cash flow',
 }
 
 const metricDescriptions: Record<string, string> = {
   REVENUE: 'Sales generated from the company’s primary business activities before costs and expenses.',
   COST_OF_REVENUE: 'Direct costs required to produce and deliver the goods or services sold.',
+  TOTAL_COSTS_AND_EXPENSES: 'All operating costs and expenses reported by the company, including direct costs and other operating expenses.',
   GROSS_PROFIT: 'Revenue remaining after subtracting cost of revenue.',
   OPERATING_EXPENSES: 'Costs of running the business outside the direct cost of producing its goods or services.',
   OPERATING_INCOME: 'Profit from core operations after cost of revenue and operating expenses.',
@@ -38,26 +39,22 @@ const metricDescriptions: Record<string, string> = {
   NET_INCOME: 'Profit remaining after operating costs, interest, taxes, and other expenses.',
   DILUTED_EPS: 'Net income attributable to each share after including the effect of potentially dilutive securities.',
   CASH_AND_EQUIVALENTS: 'Highly liquid cash and short-term investments available at the period end.',
-  ACCOUNTS_RECEIVABLE: 'Amounts customers owe the company for goods or services already delivered.',
-  INVENTORY: 'Value of goods and materials held for production or sale.',
   CURRENT_ASSETS: 'Assets expected to be converted to cash, sold, or used within roughly one year.',
   TOTAL_ASSETS: 'Total economic resources controlled by the company at the period end.',
-  GOODWILL: 'Acquisition value recorded above the identifiable net assets of acquired businesses.',
   CURRENT_LIABILITIES: 'Obligations expected to be settled within roughly one year.',
   TOTAL_LIABILITIES: 'All financial obligations owed by the company at the period end.',
   CURRENT_DEBT: 'Interest-bearing debt due within roughly one year, based on the company’s available SEC debt disclosure.',
   LONG_TERM_DEBT: 'Borrowings and debt obligations generally due more than one year from the period end.',
   TOTAL_DEBT: 'Combined current and noncurrent interest-bearing debt. Stockly uses a reported SEC total when available, otherwise it adds current and long-term debt.',
   SHAREHOLDERS_EQUITY: 'The company’s total book value: the residual value attributable to shareholders after subtracting liabilities from assets.',
-  SHARES_OUTSTANDING: 'Common shares issued and held by investors at the reporting date.',
   OPERATING_CASH_FLOW: 'Cash generated or consumed by the company’s normal business operations.',
   CAPITAL_EXPENDITURES: 'Cash spent to acquire or improve property, equipment, and other long-lived operating assets.',
   FREE_CASH_FLOW: 'Cash remaining after capital expenditures, calculated as operating cash flow minus capital expenditures.',
 }
 
 const statementGroups = [
-  { key: 'INCOME_STATEMENT', title: 'Income statement', description: 'Revenue, profitability, and earnings', metrics: ['REVENUE', 'COST_OF_REVENUE', 'GROSS_PROFIT', 'OPERATING_EXPENSES', 'OPERATING_INCOME', 'INTEREST_EXPENSE', 'INCOME_BEFORE_TAX', 'INCOME_TAX_EXPENSE', 'NET_INCOME', 'DILUTED_EPS'] },
-  { key: 'BALANCE_SHEET', title: 'Balance sheet', description: 'Assets, liabilities, debt, and book value', metrics: ['CASH_AND_EQUIVALENTS', 'ACCOUNTS_RECEIVABLE', 'INVENTORY', 'CURRENT_ASSETS', 'GOODWILL', 'TOTAL_ASSETS', 'CURRENT_LIABILITIES', 'TOTAL_LIABILITIES', 'CURRENT_DEBT', 'LONG_TERM_DEBT', 'TOTAL_DEBT', 'SHAREHOLDERS_EQUITY', 'SHARES_OUTSTANDING'] },
+  { key: 'INCOME_STATEMENT', title: 'Income statement', description: 'Revenue, profitability, and earnings', metrics: ['REVENUE', 'COST_OF_REVENUE', 'TOTAL_COSTS_AND_EXPENSES', 'GROSS_PROFIT', 'OPERATING_EXPENSES', 'OPERATING_INCOME', 'INTEREST_EXPENSE', 'INCOME_BEFORE_TAX', 'INCOME_TAX_EXPENSE', 'NET_INCOME', 'DILUTED_EPS'] },
+  { key: 'BALANCE_SHEET', title: 'Balance sheet', description: 'Assets, liabilities, debt, and book value', metrics: ['CASH_AND_EQUIVALENTS', 'CURRENT_ASSETS', 'TOTAL_ASSETS', 'CURRENT_LIABILITIES', 'TOTAL_LIABILITIES', 'CURRENT_DEBT', 'LONG_TERM_DEBT', 'TOTAL_DEBT', 'SHAREHOLDERS_EQUITY'] },
   { key: 'CASH_FLOW', title: 'Cash flow statement', description: 'Operating cash generation and capital allocation', metrics: ['OPERATING_CASH_FLOW', 'CAPITAL_EXPENDITURES', 'FREE_CASH_FLOW'] },
 ] as const
 
