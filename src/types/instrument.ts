@@ -39,6 +39,17 @@ export type InstrumentQuote = {
   fetchedAt: string
 }
 
+export type DailyQuote = {
+  symbol: string
+  date: string
+  open: number | null
+  high: number | null
+  low: number | null
+  close: number
+  volume: number | null
+  currency: string
+}
+
 export type DividendEvent = {
   symbol: string
   declarationDate: string | null

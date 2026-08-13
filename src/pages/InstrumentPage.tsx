@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { apiErrorMessage } from '../api/client'
-import { getDividends, getFinancials, getInstrument, getQuote, getSplits, type FinancialPeriod } from '../api/instruments'
+import { getDividends, getFinancials, getInstrument, getQuote, getQuoteHistory, getSplits, type FinancialPeriod } from '../api/instruments'
 import { addWatchlistInstrument, createWatchlist, getWatchlists, removeWatchlistInstrument } from '../api/watchlists'
 import InstrumentMark from '../components/InstrumentMark'
 import type { AuthResponse } from '../types/auth'
-import type { DividendEvent, FinancialFact, Instrument, InstrumentQuote, StockSplitEvent, Watchlist } from '../types/instrument'
+import type { DailyQuote, DividendEvent, FinancialFact, Instrument, InstrumentQuote, StockSplitEvent, Watchlist } from '../types/instrument'
 
 type Period = FinancialPeriod
 type DividendPeriod = 'ANNUAL' | 'QUARTERLY' | 'MONTHLY'
+type PriceRange = '1M' | '3M' | '1Y' | '5Y' | '20Y'
 type DetailTab = 'dividends' | 'splits' | 'financials'
 type FinancialPeriodColumn = { key: string, label: string, periodEnd: string, fiscalYear: number }
 type DividendChartPoint = { key: string, label: string, year: number, quarter?: number, month?: number, amount: number, change: number | null }
@@ -89,6 +90,10 @@ function InstrumentPage({ symbol, auth, onNeedAuth, onWatchChange, watched }: In
   const [dividendPeriod, setDividendPeriod] = useState<DividendPeriod>('QUARTERLY')
   const [splits, setSplits] = useState<StockSplitEvent[]>([])
   const [marketLoading, setMarketLoading] = useState(true)
+  const [priceHistory, setPriceHistory] = useState<DailyQuote[]>([])
+  const [priceRange, setPriceRange] = useState<PriceRange>('1Y')
+  const [priceHistoryLoading, setPriceHistoryLoading] = useState(true)
+  const [priceHistoryError, setPriceHistoryError] = useState('')
   const [activeTab, setActiveTab] = useState<DetailTab>('financials')
 
   useEffect(() => {
@@ -102,6 +107,32 @@ function InstrumentPage({ symbol, auth, onNeedAuth, onWatchChange, watched }: In
       .finally(() => { if (!controller.signal.aborted) setLoading(false) })
     return () => controller.abort()
   }, [symbol])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    const toDate = new Date()
+    const fromDate = new Date(toDate)
+    if (priceRange === '1M') fromDate.setMonth(fromDate.getMonth() - 1)
+    if (priceRange === '3M') fromDate.setMonth(fromDate.getMonth() - 3)
+    if (priceRange === '1Y') fromDate.setFullYear(fromDate.getFullYear() - 1)
+    if (priceRange === '5Y') fromDate.setFullYear(fromDate.getFullYear() - 5)
+    if (priceRange === '20Y') fromDate.setFullYear(fromDate.getFullYear() - 20)
+    const isoDate = (value: Date) => value.toISOString().slice(0, 10)
+    Promise.resolve().then(() => {
+      if (!controller.signal.aborted) {
+        setPriceHistoryLoading(true)
+        setPriceHistoryError('')
+      }
+    })
+    getQuoteHistory(symbol, isoDate(fromDate), isoDate(toDate), controller.signal)
+      .then(setPriceHistory)
+      .catch((reason: unknown) => {
+        if (reason instanceof DOMException && reason.name === 'AbortError') return
+        setPriceHistoryError(apiErrorMessage(reason, 'Price history is unavailable'))
+      })
+      .finally(() => { if (!controller.signal.aborted) setPriceHistoryLoading(false) })
+    return () => controller.abort()
+  }, [priceRange, symbol])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -322,6 +353,14 @@ function InstrumentPage({ symbol, auth, onNeedAuth, onWatchChange, watched }: In
       <div className="mt-7 grid gap-3 border-t border-[#e7ebe7] pt-6 sm:grid-cols-3"><Detail label="Exchange" value={instrument.exchange} /><Detail label="Sector" value={instrument.instrumentType === 'ETF' ? 'Funds' : instrument.sector || 'Not classified'} /><Detail label="SEC CIK" value={instrument.cik || 'Not available'} /></div>
     </section>
 
+    <section className="mt-6 overflow-hidden rounded-[22px] border border-[#dfe4df] bg-white">
+      <div className="flex flex-col justify-between gap-4 border-b border-[#e5e9e5] p-5 sm:flex-row sm:items-center md:px-7">
+        <div><h2 className="text-xl font-semibold tracking-[-.025em]">Price history</h2><p className="mt-1 text-sm text-[#7a857e]">Daily closing price · {priceHistory[0]?.currency ?? quote?.currency ?? 'USD'}</p></div>
+        <Segmented values={['1M', '3M', '1Y', '5Y', '20Y']} active={priceRange} onChange={(value) => setPriceRange(value as PriceRange)} />
+      </div>
+      {priceHistoryLoading ? <div className="h-80 animate-pulse bg-[#f7f9f7]" aria-label="Loading price history" /> : priceHistoryError ? <div className="px-6 py-12 text-center"><p className="font-semibold">Unable to load price history</p><p className="mt-1 text-sm text-rose-600">{priceHistoryError}</p></div> : priceHistory.length > 1 ? <PriceHistoryChart data={priceHistory} /> : <div className="px-6 py-12 text-center"><p className="font-semibold">No price history found</p><p className="mt-1 text-sm text-[#7a857e]">Import daily quotes for this instrument to display its chart.</p></div>}
+    </section>
+
       <nav className="mb-6 mt-6 flex overflow-x-auto border-b border-[#dfe4df]" aria-label="Instrument details">
         {([['financials', 'Financials'], ['dividends', 'Dividend history'], ['splits', 'Split history']] as const).map(([key, label]) => <button key={key} onClick={() => setActiveTab(key)} className={`relative min-w-max px-4 py-4 text-sm font-bold transition-colors after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:transition ${activeTab === key ? 'text-[#173c2c] after:bg-[#285d43] dark:text-[#b8e2c9]' : 'text-[#78837c] after:bg-transparent hover:bg-[#f7f9f7] hover:text-[#285d43]'}`} aria-current={activeTab === key ? 'page' : undefined}>{label}</button>)}
       </nav>
@@ -344,6 +383,50 @@ function InstrumentPage({ symbol, auth, onNeedAuth, onWatchChange, watched }: In
       </section>}
     </>}
   </main>
+}
+
+function PriceHistoryChart({ data }: { data: DailyQuote[] }) {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
+  const width = 1000
+  const height = 320
+  const left = 72
+  const right = 24
+  const top = 30
+  const bottom = 44
+  const plotWidth = width - left - right
+  const plotHeight = height - top - bottom
+  const closes = data.map((point) => point.close)
+  const rawMinimum = Math.min(...closes)
+  const rawMaximum = Math.max(...closes)
+  const padding = Math.max((rawMaximum - rawMinimum) * .08, rawMaximum * .01, .01)
+  const minimum = Math.max(0, rawMinimum - padding)
+  const maximum = rawMaximum + padding
+  const range = maximum - minimum || 1
+  const x = (index: number) => left + index / Math.max(data.length - 1, 1) * plotWidth
+  const y = (value: number) => top + (maximum - value) / range * plotHeight
+  const line = data.map((point, index) => `${index ? 'L' : 'M'} ${x(index).toFixed(2)} ${y(point.close).toFixed(2)}`).join(' ')
+  const area = `${line} L ${x(data.length - 1)} ${top + plotHeight} L ${left} ${top + plotHeight} Z`
+  const currency = data[0]?.currency ?? 'USD'
+  const first = data[0].close
+  const last = data[data.length - 1].close
+  const change = (last - first) / first * 100
+  const formatPrice = (value: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 2 }).format(value)
+  const dateLabel = (value: string) => new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${value}T00:00:00Z`))
+  const selected = hoveredIndex == null ? null : data[hoveredIndex]
+
+  return <div className="p-4 sm:p-6">
+    <div className="mb-3 flex items-baseline gap-3"><strong className="text-2xl tabular-nums">{formatPrice(last)}</strong><span className={`text-sm font-bold ${change >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{change >= 0 ? '+' : ''}{change.toFixed(2)}%</span></div>
+    <div className="relative w-full overflow-hidden">
+      <svg viewBox={`0 0 ${width} ${height}`} className="block w-full" role="img" aria-label={`Closing price from ${data[0].date} to ${data[data.length - 1].date}`} onMouseLeave={() => setHoveredIndex(null)} onMouseMove={(event) => { const bounds = event.currentTarget.getBoundingClientRect(); const chartX = (event.clientX - bounds.left) / bounds.width * width; const index = Math.round((chartX - left) / plotWidth * (data.length - 1)); setHoveredIndex(Math.max(0, Math.min(data.length - 1, index))) }}>
+        <defs><linearGradient id="price-area" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#2f7653" stopOpacity=".24" /><stop offset="1" stopColor="#2f7653" stopOpacity=".02" /></linearGradient></defs>
+        {[0, .25, .5, .75, 1].map((ratio) => { const gridY = top + ratio * plotHeight; const value = maximum - ratio * range; return <g key={ratio}><line x1={left} x2={width - right} y1={gridY} y2={gridY} className="stroke-[#e5eae6] dark:stroke-[#344139]" strokeDasharray="3 5" /><text x={left - 10} y={gridY + 4} textAnchor="end" className="fill-[#7b867f] text-[11px]">{formatPrice(value)}</text></g> })}
+        <path d={area} fill="url(#price-area)" /><path d={line} fill="none" className="stroke-[#2f7653] dark:stroke-[#70bd91]" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
+        {[0, .25, .5, .75, 1].map((ratio) => { const index = Math.round(ratio * (data.length - 1)); return <text key={ratio} x={x(index)} y={height - 12} textAnchor={ratio === 0 ? 'start' : ratio === 1 ? 'end' : 'middle'} className="fill-[#7b867f] text-[11px]">{dateLabel(data[index].date)}</text> })}
+        {selected && hoveredIndex !== null && <g><line x1={x(hoveredIndex)} x2={x(hoveredIndex)} y1={top} y2={top + plotHeight} className="stroke-[#829087]" strokeDasharray="4 4" /><circle cx={x(hoveredIndex)} cy={y(selected.close)} r="6" className="fill-[#2f7653] stroke-white dark:stroke-[#141d19]" strokeWidth="3" /></g>}
+      </svg>
+      {selected && hoveredIndex !== null && <div className="pointer-events-none absolute top-3 rounded-xl bg-[#15231d] px-3 py-2 text-xs text-white shadow-xl" style={{ left: `${Math.max(4, Math.min(84, x(hoveredIndex) / width * 100))}%`, transform: 'translateX(-50%)' }}><p className="font-bold">{formatPrice(selected.close)}</p><p className="mt-1 text-white/65">{dateLabel(selected.date)}</p></div>}
+    </div>
+  </div>
 }
 
 function DividendHistoryChart({ data, currency, period }: { data: DividendChartPoint[], currency: string, period: DividendPeriod }) {

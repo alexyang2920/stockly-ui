@@ -1,5 +1,5 @@
 import type { AuthResponse } from '../types/auth'
-import type { DividendEvent, FinancialFact, Instrument, InstrumentQuote, StockSplitEvent } from '../types/instrument'
+import type { DailyQuote, DividendEvent, FinancialFact, Instrument, InstrumentQuote, StockSplitEvent } from '../types/instrument'
 import { apiRequest } from './client'
 
 export type FinancialPeriod = 'ANNUAL' | 'QUARTERLY'
@@ -22,6 +22,11 @@ export function syncFinancials(auth: AuthResponse, symbol: string) {
 
 export function getQuote(symbol: string, signal?: AbortSignal) {
   return apiRequest<InstrumentQuote>(`/instruments/${encodeURIComponent(symbol)}/quote`, { signal })
+}
+
+export function getQuoteHistory(symbol: string, from: string, to: string, signal?: AbortSignal) {
+  const query = new URLSearchParams({ from, to })
+  return apiRequest<DailyQuote[]>(`/instruments/${encodeURIComponent(symbol)}/quotes/history?${query}`, { signal })
 }
 
 export function syncQuote(auth: AuthResponse, symbol: string) {
