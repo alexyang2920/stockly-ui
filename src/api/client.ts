@@ -47,14 +47,15 @@ async function refreshAccessToken() {
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}, retryAfterRefresh = true): Promise<T> {
   const { auth, body, headers, ...requestOptions } = options
+  const formData = body instanceof FormData
   const response = await fetch(`/api/v1${path}`, {
     ...requestOptions,
     headers: {
-      ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+      ...(body !== undefined && !formData ? { 'Content-Type': 'application/json' } : {}),
       ...(auth ? { Authorization: `${auth.tokenType} ${auth.accessToken}` } : {}),
       ...headers,
     },
-    body: body === undefined ? undefined : JSON.stringify(body),
+    body: body === undefined ? undefined : formData ? body : JSON.stringify(body),
   })
 
   if (response.status === 401 && auth && retryAfterRefresh) {

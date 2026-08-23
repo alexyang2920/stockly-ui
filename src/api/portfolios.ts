@@ -1,5 +1,5 @@
 import type { AuthResponse } from '../types/auth'
-import type { CreatePortfolioInput, DividendCalendarEvent, Holding, Page, Portfolio, PortfolioPerformance, PortfolioTransaction, TransactionInput, TransactionType } from '../types/portfolio'
+import type { CreatePortfolioInput, DividendCalendarEvent, FidelityImportResult, Holding, Page, Portfolio, PortfolioPerformance, PortfolioTransaction, TransactionInput, TransactionType } from '../types/portfolio'
 import { apiRequest } from './client'
 
 export function getPortfolios(auth: AuthResponse, signal?: AbortSignal) {
@@ -48,4 +48,12 @@ export function updateTransaction(auth: AuthResponse, portfolioId: string, trans
 
 export function deleteTransaction(auth: AuthResponse, portfolioId: string, transactionId: string) {
   return apiRequest<void>(`/portfolios/${portfolioId}/transactions/${transactionId}`, { method: 'DELETE', auth })
+}
+
+export function importFidelityActivity(auth: AuthResponse, portfolioId: string, file: File) {
+  const form = new FormData()
+  form.append('file', file)
+  return apiRequest<FidelityImportResult>(`/portfolios/${portfolioId}/transactions/import/fidelity`, {
+    method: 'POST', auth, body: form,
+  })
 }

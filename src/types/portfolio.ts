@@ -18,6 +18,7 @@ export type PortfolioTransaction = {
   price: number | null
   fees: number
   amount: number | null
+  returnOfCapitalAmount: number
   totalAmount: number | null
   currency: string
   executedAt: string
@@ -66,7 +67,18 @@ export type DividendCalendarEvent = {
 
 export type PortfolioPerformance = {
   realizedGain: number
+  cashDistributions: number
+  dividendIncome: number
   currency: string
+}
+
+export type FidelityImportResult = {
+  rowsRead: number
+  imported: number
+  duplicates: number
+  ignoredOptions: number
+  ignoredUnsupported: number
+  warnings: string[]
 }
 
 export type Page<T> = {
@@ -92,6 +104,7 @@ export type TransactionInput = {
   price?: number
   fees?: number
   amount?: number
+  returnOfCapitalAmount?: number
   currency: string
   executedAt: string
   notes?: string

@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { apiErrorMessage } from '../api/client'
 import { searchInstruments } from '../api/instruments'
-import { createTransaction, deleteTransaction, getHoldings, getPortfolioPerformance, getPortfolios, getTransactions, updateTransaction } from '../api/portfolios'
+import { createTransaction, deleteTransaction, getHoldings, getPortfolioPerformance, getPortfolios, getTransactions, importFidelityActivity, updateTransaction } from '../api/portfolios'
 import InstrumentMark from '../components/InstrumentMark'
 import type { AuthResponse } from '../types/auth'
 import type { Instrument } from '../types/instrument'
-import type { Holding, Portfolio, PortfolioTransaction, TransactionInput, TransactionType } from '../types/portfolio'
+import type { FidelityImportResult, Holding, Portfolio, PortfolioTransaction, TransactionInput, TransactionType } from '../types/portfolio'
 
 type PortfolioPageProps = {
   auth: AuthResponse | null
@@ -17,6 +17,9 @@ type PortfolioPageProps = {
 }
 
 const transactionTypes: TransactionType[] = ['BUY', 'SELL', 'DIVIDEND', 'FEE', 'DEPOSIT', 'WITHDRAWAL']
+
+type HoldingSortKey = 'instrument' | 'quantity' | 'averageCost' | 'marketPrice' | 'marketValue' | 'unrealizedGain' | 'realizedGain'
+type SortDirection = 'asc' | 'desc'
 
 function Icon({ children, className = 'size-5' }: { children: ReactNode, className?: string }) {
   return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{children}</svg>
@@ -34,6 +37,12 @@ function shortDate(value: string) {
   return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(value))
 }
 
+function SortableHoldingHeader({ label, sortKey, activeSort, onSort, className = 'px-4' }: { label: string, sortKey: HoldingSortKey, activeSort: { key: HoldingSortKey, direction: SortDirection }, onSort: (key: HoldingSortKey) => void, className?: string }) {
+  const active = activeSort.key === sortKey
+  const directionLabel = activeSort.direction === 'asc' ? 'ascending' : 'descending'
+  return <th className={`${className} py-3 ${sortKey === 'instrument' ? 'text-left' : 'text-right'}`} aria-sort={active ? directionLabel : 'none'}><button type="button" onClick={() => onSort(sortKey)} className="inline-flex items-center gap-1 rounded py-1 hover:text-[#285d43] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#779a86]" aria-label={`Sort by ${label}${active ? `, currently ${directionLabel}` : ''}`}>{label}<span className={`text-[11px] ${active ? 'text-[#285d43]' : 'text-[#b1bab4]'}`} aria-hidden="true">{active ? activeSort.direction === 'asc' ? '↑' : '↓' : '↕'}</span></button></th>
+}
+
 function PortfolioPage({ auth, section, requestedPortfolioId, onNeedAuth, onSelectInstrument, startWithTransaction = false }: PortfolioPageProps) {
   const [portfolios, setPortfolios] = useState<Portfolio[]>([])
   const [selectedId, setSelectedId] = useState('')
@@ -47,9 +56,12 @@ function PortfolioPage({ auth, section, requestedPortfolioId, onNeedAuth, onSele
   const [loading, setLoading] = useState(Boolean(auth))
   const [detailsLoading, setDetailsLoading] = useState(false)
   const [realizedGain, setRealizedGain] = useState(0)
+  const [cashDistributions, setCashDistributions] = useState(0)
   const [error, setError] = useState('')
   const [showTransaction, setShowTransaction] = useState(startWithTransaction)
   const [editing, setEditing] = useState<PortfolioTransaction | null>(null)
+  const [showFidelityImport, setShowFidelityImport] = useState(false)
+  const [holdingSort, setHoldingSort] = useState<{ key: HoldingSortKey, direction: SortDirection }>({ key: 'marketValue', direction: 'desc' })
 
   const selected = portfolios.find((portfolio) => portfolio.id === selectedId)
 
@@ -78,6 +90,7 @@ function PortfolioPage({ auth, section, requestedPortfolioId, onNeedAuth, onSele
       setTotalTransactions(transactionData.totalElements)
       setTotalPages(transactionData.totalPages)
       setRealizedGain(performance.realizedGain)
+      setCashDistributions(performance.cashDistributions)
     }).catch((reason: unknown) => {
       if (reason instanceof DOMException && reason.name === 'AbortError') return
       setError(apiErrorMessage(reason, 'Unable to load portfolio details.'))
@@ -98,6 +111,31 @@ function PortfolioPage({ auth, section, requestedPortfolioId, onNeedAuth, onSele
     quotedPositions: result.quotedPositions + (holding.marketValue == null ? 0 : 1),
   }), { costBasis: 0, realizedGain: 0, marketValue: 0, unrealizedGain: 0, quotedPositions: 0 }), [holdings])
 
+  const sortedHoldings = useMemo(() => [...holdings].sort((left, right) => {
+    const values: Record<HoldingSortKey, [string | number | null, string | number | null]> = {
+      instrument: [left.symbol, right.symbol],
+      quantity: [left.quantity, right.quantity],
+      averageCost: [left.averageCost, right.averageCost],
+      marketPrice: [left.marketPrice, right.marketPrice],
+      marketValue: [left.marketValue, right.marketValue],
+      unrealizedGain: [left.unrealizedGain, right.unrealizedGain],
+      realizedGain: [left.realizedGain, right.realizedGain],
+    }
+    const [leftValue, rightValue] = values[holdingSort.key]
+    if (leftValue == null) return rightValue == null ? left.symbol.localeCompare(right.symbol) : 1
+    if (rightValue == null) return -1
+    const comparison = typeof leftValue === 'string'
+      ? leftValue.localeCompare(String(rightValue))
+      : leftValue - Number(rightValue)
+    return (holdingSort.direction === 'asc' ? comparison : -comparison) || left.symbol.localeCompare(right.symbol)
+  }), [holdings, holdingSort])
+
+  const sortHoldings = (key: HoldingSortKey) => {
+    setHoldingSort((current) => current.key === key
+      ? { key, direction: current.direction === 'asc' ? 'desc' : 'asc' }
+      : { key, direction: key === 'instrument' ? 'asc' : 'desc' })
+  }
+
   const removeTransaction = async (transaction: PortfolioTransaction) => {
     if (!auth || !selected || !window.confirm(`Delete this ${transaction.type.toLowerCase()} transaction?`)) return
     try {
@@ -114,22 +152,23 @@ function PortfolioPage({ auth, section, requestedPortfolioId, onNeedAuth, onSele
   return <main className="mx-auto max-w-[1560px] px-5 py-8 lg:px-8 lg:py-11">
     <div className="mb-8 flex flex-col justify-between gap-5 md:flex-row md:items-end">
       <div><p className="text-xs font-bold uppercase tracking-[.15em] text-[#718078]">Investment ledger</p><h1 className="mt-2 text-[36px] font-semibold tracking-[-.045em] md:text-[46px]">{section === 'holdings' ? 'Holdings' : 'Transactions'}</h1><p className="mt-2 text-sm text-[#738078]">{section === 'holdings' ? 'Positions calculated directly from your transaction history.' : 'Review and maintain the complete investment ledger.'}</p></div>
-      {section === 'transactions' && selected && <button onClick={() => { setEditing(null); setShowTransaction(true) }} className="flex items-center gap-2 self-start rounded-xl bg-[#d8f768] px-4 py-3 text-sm font-bold text-[#1c2d24] hover:bg-[#c9ed4d] md:self-auto"><Icon className="size-4"><path d="M12 5v14M5 12h14" /></Icon>Add transaction</button>}
+      {section === 'transactions' && selected && <div className="flex flex-wrap gap-2 self-start md:self-auto"><button onClick={() => setShowFidelityImport(true)} className="flex items-center gap-2 rounded-xl border border-[#cfd8d1] bg-white px-4 py-3 text-sm font-bold text-[#284536] hover:bg-[#f3f6f3]"><Icon className="size-4"><path d="M12 3v12M7 10l5 5 5-5M4 20h16" /></Icon>Import Fidelity CSV</button><button onClick={() => { setEditing(null); setShowTransaction(true) }} className="flex items-center gap-2 rounded-xl bg-[#d8f768] px-4 py-3 text-sm font-bold text-[#1c2d24] hover:bg-[#c9ed4d]"><Icon className="size-4"><path d="M12 5v14M5 12h14" /></Icon>Add transaction</button></div>}
     </div>
 
     {error && <div role="alert" className="mb-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>}
 
     {loading ? <div className="h-72 animate-pulse rounded-[22px] bg-white" /> : portfolios.length === 0 ? <div className="rounded-[22px] border border-dashed border-[#cfd7d1] bg-white py-20 text-center"><h2 className="text-xl font-semibold">Create your first portfolio</h2><p className="mt-2 text-sm text-[#7b867f]">Use the + beside the portfolio selector in the top menu.</p></div> : <>
       {section === 'holdings' && <>
-      <section className="mb-5 grid gap-4 md:grid-cols-3">
+      <section className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <SummaryCard label="Market value" value={totals.quotedPositions ? money(totals.marketValue, selected?.currency) : '—'} note={`${totals.quotedPositions} of ${holdings.length} positions quoted`} />
         <SummaryCard label="Unrealized gain" value={totals.quotedPositions ? money(totals.unrealizedGain, selected?.currency) : '—'} note={`Cost basis ${money(totals.costBasis, selected?.currency)}`} positive={totals.quotedPositions ? totals.unrealizedGain >= 0 : undefined} />
         <SummaryCard label="Realized gain" value={money(realizedGain, selected?.currency)} note="Includes open and fully sold positions" positive={realizedGain >= 0} />
+        <SummaryCard label="Cash distributions" value={money(cashDistributions, selected?.currency)} note="Includes dividends and return of capital" positive={cashDistributions > 0 ? true : undefined} />
       </section>
 
       <section className="mb-5 overflow-hidden rounded-[22px] border border-[#dfe4df] bg-white">
         <div className="border-b border-[#e5e9e5] px-5 py-5 md:px-6"><h2 className="text-lg font-semibold tracking-[-.02em]">Holdings</h2><p className="mt-1 text-xs text-[#7b867f]">Latest server-synchronized prices · weighted-average cost</p></div>
-        {detailsLoading && !holdings.length ? <div className="h-44 animate-pulse bg-[#f7f9f7]" /> : holdings.length === 0 ? <EmptyState title="No open positions" text="Add a BUY transaction to begin building this portfolio." /> : <div className="overflow-x-auto"><table className="w-full min-w-[980px] text-left"><thead className="bg-[#fafbf9] text-[10px] font-bold uppercase tracking-[.12em] text-[#849088]"><tr><th className="px-6 py-3">Instrument</th><th className="px-4 py-3 text-right">Quantity</th><th className="px-4 py-3 text-right">Average cost</th><th className="px-4 py-3 text-right">Latest price</th><th className="px-4 py-3 text-right">Market value</th><th className="px-4 py-3 text-right">Unrealized gain</th><th className="px-6 py-3 text-right">Realized gain</th></tr></thead><tbody>{holdings.map((holding) => <tr key={holding.symbol} className="border-t border-[#ecefec] hover:bg-[#fafcf9] dark:hover:bg-[#1a2520]"><td className="px-6 py-4"><button onClick={() => onSelectInstrument(holding.symbol)} className="flex items-center gap-3 text-left"><InstrumentMark symbol={holding.symbol} size="small" /><span><strong className="block text-sm">{holding.symbol}</strong><span className="mt-0.5 block text-xs text-[#7b867f]">{holding.name}</span></span></button></td><td className="px-4 py-4 text-right text-sm font-semibold tabular-nums">{quantity(holding.quantity)}</td><td className="px-4 py-4 text-right text-sm tabular-nums">{money(holding.averageCost, holding.currency)}</td><td className="px-4 py-4 text-right text-sm tabular-nums">{holding.marketPrice == null ? <span className="text-[#87918b]">Not quoted</span> : <span>{money(holding.marketPrice, holding.currency)}<small className="mt-0.5 block text-[10px] text-[#87918b]">Close · {holding.quoteDate}</small></span>}</td><td className="px-4 py-4 text-right text-sm font-semibold tabular-nums">{holding.marketValue == null ? '—' : money(holding.marketValue, holding.currency)}</td><td className={`px-4 py-4 text-right text-sm font-bold tabular-nums ${holding.unrealizedGain == null ? 'text-[#87918b]' : holding.unrealizedGain >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{holding.unrealizedGain == null ? '—' : <span>{holding.unrealizedGain >= 0 ? '+' : ''}{money(holding.unrealizedGain, holding.currency)}<small className="mt-0.5 block text-[10px]">{holding.unrealizedGainPercent == null ? '' : `${holding.unrealizedGainPercent >= 0 ? '+' : ''}${holding.unrealizedGainPercent.toFixed(2)}%`}</small></span>}</td><td className={`px-6 py-4 text-right text-sm font-bold tabular-nums ${holding.realizedGain >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{holding.realizedGain >= 0 ? '+' : ''}{money(holding.realizedGain, holding.currency)}</td></tr>)}</tbody></table></div>}
+        {detailsLoading && !holdings.length ? <div className="h-44 animate-pulse bg-[#f7f9f7]" /> : holdings.length === 0 ? <EmptyState title="No open positions" text="Add a BUY transaction to begin building this portfolio." /> : <div className="overflow-x-auto"><table className="w-full min-w-[980px] text-left"><thead className="bg-[#fafbf9] text-[10px] font-bold uppercase tracking-[.12em] text-[#849088]"><tr><SortableHoldingHeader label="Instrument" sortKey="instrument" activeSort={holdingSort} onSort={sortHoldings} className="px-6" /><SortableHoldingHeader label="Quantity" sortKey="quantity" activeSort={holdingSort} onSort={sortHoldings} /><SortableHoldingHeader label="Average cost" sortKey="averageCost" activeSort={holdingSort} onSort={sortHoldings} /><SortableHoldingHeader label="Latest price" sortKey="marketPrice" activeSort={holdingSort} onSort={sortHoldings} /><SortableHoldingHeader label="Market value" sortKey="marketValue" activeSort={holdingSort} onSort={sortHoldings} /><SortableHoldingHeader label="Unrealized gain" sortKey="unrealizedGain" activeSort={holdingSort} onSort={sortHoldings} /><SortableHoldingHeader label="Realized gain" sortKey="realizedGain" activeSort={holdingSort} onSort={sortHoldings} className="px-6" /></tr></thead><tbody>{sortedHoldings.map((holding) => <tr key={holding.symbol} className="border-t border-[#ecefec] hover:bg-[#fafcf9] dark:hover:bg-[#1a2520]"><td className="px-6 py-4"><button onClick={() => onSelectInstrument(holding.symbol)} className="flex items-center gap-3 text-left"><InstrumentMark symbol={holding.symbol} size="small" /><span><strong className="block text-sm">{holding.symbol}</strong><span className="mt-0.5 block text-xs text-[#7b867f]">{holding.name}</span></span></button></td><td className="px-4 py-4 text-right text-sm font-semibold tabular-nums">{quantity(holding.quantity)}</td><td className="px-4 py-4 text-right text-sm tabular-nums">{money(holding.averageCost, holding.currency)}</td><td className="px-4 py-4 text-right text-sm tabular-nums">{holding.marketPrice == null ? <span className="text-[#87918b]">Not quoted</span> : <span>{money(holding.marketPrice, holding.currency)}<small className="mt-0.5 block text-[10px] text-[#87918b]">Close · {holding.quoteDate}</small></span>}</td><td className="px-4 py-4 text-right text-sm font-semibold tabular-nums">{holding.marketValue == null ? '—' : money(holding.marketValue, holding.currency)}</td><td className={`px-4 py-4 text-right text-sm font-bold tabular-nums ${holding.unrealizedGain == null ? 'text-[#87918b]' : holding.unrealizedGain >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{holding.unrealizedGain == null ? '—' : <span>{holding.unrealizedGain >= 0 ? '+' : ''}{money(holding.unrealizedGain, holding.currency)}<small className="mt-0.5 block text-[10px]">{holding.unrealizedGainPercent == null ? '' : `${holding.unrealizedGainPercent >= 0 ? '+' : ''}${holding.unrealizedGainPercent.toFixed(2)}%`}</small></span>}</td><td className={`px-6 py-4 text-right text-sm font-bold tabular-nums ${holding.realizedGain >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{holding.realizedGain >= 0 ? '+' : ''}{money(holding.realizedGain, holding.currency)}</td></tr>)}</tbody></table></div>}
       </section>
       </>}
 
@@ -142,7 +181,38 @@ function PortfolioPage({ auth, section, requestedPortfolioId, onNeedAuth, onSele
     </>}
 
     {showTransaction && selected && <TransactionModal auth={auth} portfolio={selected} transaction={editing} onClose={() => { setShowTransaction(false); setEditing(null) }} onSaved={async () => { setShowTransaction(false); setEditing(null); await loadDetails() }} />}
+    {showFidelityImport && selected && <FidelityImportModal auth={auth} portfolio={selected} onClose={() => setShowFidelityImport(false)} onImported={loadDetails} />}
   </main>
+}
+
+function FidelityImportModal({ auth, portfolio, onClose, onImported }: { auth: AuthResponse, portfolio: Portfolio, onClose: () => void, onImported: () => void | Promise<void> }) {
+  const [file, setFile] = useState<File | null>(null)
+  const [importing, setImporting] = useState(false)
+  const [error, setError] = useState('')
+  const [result, setResult] = useState<FidelityImportResult | null>(null)
+  const submit = async (event: FormEvent) => {
+    event.preventDefault()
+    if (!file) { setError('Choose a Fidelity CSV file.'); return }
+    setImporting(true); setError(''); setResult(null)
+    try {
+      const imported = await importFidelityActivity(auth, portfolio.id, file)
+      setResult(imported)
+      await onImported()
+    } catch (reason) {
+      setError(apiErrorMessage(reason, 'Unable to import the Fidelity activity file.'))
+    } finally {
+      setImporting(false)
+    }
+  }
+  return <Modal title="Import Fidelity activity" description={`Add supported activity to ${portfolio.name}`} onClose={onClose}>
+    <form onSubmit={submit} className="mt-6 space-y-4">
+      <label className="block rounded-2xl border border-dashed border-[#bdc9c0] bg-[#f7f9f7] p-5 text-center text-sm font-semibold hover:border-[#779a86]"><input type="file" accept=".csv,text/csv" className="sr-only" onChange={(event) => { setFile(event.target.files?.[0] ?? null); setResult(null); setError('') }} /><span className="block text-[#285d43]">{file ? file.name : 'Choose Fidelity CSV'}</span><span className="mt-1 block text-xs font-normal text-[#7b867f]">Maximum file size 10 MB</span></label>
+      <div className="rounded-xl bg-[#f2f5f2] px-4 py-3 text-xs leading-5 text-[#657168]"><p>Stocks, ETFs, dividends, reinvestments, cash deposits and transfers are imported. Put and call activity is ignored.</p><p className="mt-1">Transferred securities use Fidelity’s reported value as a provisional cost basis.</p></div>
+      {error && <ErrorMessage>{error}</ErrorMessage>}
+      {result && <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900"><p className="font-bold">Imported {result.imported} transactions</p><p className="mt-1 text-xs">Read {result.rowsRead} rows · {result.duplicates} duplicates · {result.ignoredOptions} options ignored · {result.ignoredUnsupported} unsupported ignored</p>{result.warnings.length > 0 && <details className="mt-3"><summary className="cursor-pointer text-xs font-bold">Review {result.warnings.length} warnings</summary><ul className="mt-2 max-h-36 list-disc space-y-1 overflow-y-auto pl-5 text-xs">{result.warnings.map((warning, index) => <li key={`${index}-${warning}`}>{warning}</li>)}</ul></details>}</div>}
+      <div className="flex gap-2"><button type="button" onClick={onClose} className="rounded-xl border border-[#dce2dd] px-4 py-3 text-sm font-bold">{result ? 'Close' : 'Cancel'}</button><button disabled={importing || !file} className={`${submitClass} flex-1`}>{importing ? 'Importing…' : result ? 'Import again' : 'Import activity'}</button></div>
+    </form>
+  </Modal>
 }
 
 function SummaryCard({ label, value, note, positive }: { label: string, value: string, note: string, positive?: boolean }) {
@@ -153,7 +223,7 @@ function TransactionRow({ transaction, onEdit, onDelete }: { transaction: Portfo
   const incoming = transaction.type === 'BUY' || transaction.type === 'DEPOSIT' || transaction.type === 'DIVIDEND'
   return <article className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-3 gap-y-3 px-4 py-4 sm:grid-cols-[auto_minmax(0,1fr)_auto_auto] sm:items-center sm:px-6">
     <span className={`grid size-9 shrink-0 place-items-center rounded-xl ${incoming ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-600'}`}><Icon className="size-4"><path d={incoming ? 'M12 19V5M6 11l6-6 6 6' : 'M12 5v14M18 13l-6 6-6-6'} /></Icon></span>
-    <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><strong className="text-sm">{transaction.type}</strong>{transaction.symbol && <span className="rounded-md bg-[#edf1ed] px-2 py-1 text-[10px] font-bold text-[#647168]">{transaction.symbol}</span>}</div><p className="mt-1 text-xs leading-5 text-[#7b867f] sm:truncate">{shortDate(transaction.executedAt)}{transaction.notes ? ` · ${transaction.notes}` : ''}</p></div>
+    <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><strong className="text-sm">{transaction.type}</strong>{transaction.symbol && <span className="rounded-md bg-[#edf1ed] px-2 py-1 text-[10px] font-bold text-[#647168]">{transaction.symbol}</span>}{transaction.returnOfCapitalAmount > 0 && <span className="rounded-md bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-700">ROC {money(transaction.returnOfCapitalAmount, transaction.currency)}</span>}</div><p className="mt-1 text-xs leading-5 text-[#7b867f] sm:truncate">{shortDate(transaction.executedAt)}{transaction.notes ? ` · ${transaction.notes}` : ''}</p></div>
     <div className="col-span-2 col-start-2 row-start-2 flex items-center justify-between gap-3 rounded-xl bg-[#fafbf9] px-3 py-2.5 sm:col-span-1 sm:col-start-3 sm:row-start-1 sm:block sm:min-w-32 sm:bg-transparent sm:p-0 sm:text-right"><span className="text-[10px] font-bold uppercase tracking-[.1em] text-[#87918b] sm:hidden">Total</span><span><span className="block text-sm font-bold tabular-nums">{transaction.totalAmount == null ? '—' : money(transaction.totalAmount, transaction.currency)}</span>{transaction.quantity != null && <span className="mt-0.5 block text-[11px] text-[#7b867f]">{quantity(transaction.quantity)} × {money(transaction.price ?? 0, transaction.currency)}</span>}</span></div>
     <div className="col-start-3 row-start-1 flex gap-0.5 sm:col-start-4"><button onClick={onEdit} className="grid size-8 place-items-center rounded-lg text-[#7b867f] hover:bg-[#eef2ee] sm:size-9" aria-label="Edit transaction"><Icon className="size-4"><path d="m4 16-.8 4 4-.8L18 8.4 15.6 6 4 16Z" /><path d="m14 7 3 3" /></Icon></button><button onClick={onDelete} className="grid size-8 place-items-center rounded-lg text-[#8b958f] hover:bg-rose-50 hover:text-rose-600 sm:size-9" aria-label="Delete transaction"><Icon className="size-4"><path d="M4 7h16M9 7V4h6v3M7 7l1 14h8l1-14" /></Icon></button></div>
   </article>
@@ -175,6 +245,7 @@ function TransactionModal({ auth, portfolio, transaction, onClose, onSaved }: { 
   const [price, setPrice] = useState(transaction?.price?.toString() ?? '')
   const [fees, setFees] = useState(transaction?.fees?.toString() ?? '0')
   const [amount, setAmount] = useState(transaction?.amount?.toString() ?? '')
+  const [returnOfCapitalAmount, setReturnOfCapitalAmount] = useState(transaction?.returnOfCapitalAmount?.toString() ?? '0')
   const [executedAt, setExecutedAt] = useState(() => {
     const date = transaction ? new Date(transaction.executedAt) : new Date()
     return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
@@ -191,10 +262,11 @@ function TransactionModal({ auth, portfolio, transaction, onClose, onSaved }: { 
     const input: TransactionInput = { type, currency: portfolio.currency, executedAt: new Date(executedAt).toISOString(), fees: Number(fees || 0), notes: notes || undefined }
     if (needsSymbol) input.symbol = symbol.trim().toUpperCase()
     if (trade) { input.quantity = Number(quantityValue); input.price = Number(price) } else input.amount = Number(amount)
+    if (type === 'DIVIDEND') input.returnOfCapitalAmount = Number(returnOfCapitalAmount || 0)
     if (!transaction) input.clientRequestId = crypto.randomUUID()
     try { if (transaction) await updateTransaction(auth, portfolio.id, transaction.id, input); else await createTransaction(auth, portfolio.id, input); await onSaved() } catch (reason) { setError(apiErrorMessage(reason, 'Unable to save transaction.')) } finally { setSaving(false) }
   }
-  return <Modal title={transaction ? 'Edit transaction' : 'Add transaction'} description={`Recording in ${portfolio.name} · ${portfolio.currency}`} onClose={onClose}><form onSubmit={submit} className="mt-6 space-y-4"><Field label="Transaction type"><select value={type} onChange={(event) => setType(event.target.value as TransactionType)} className={inputClass}>{transactionTypes.map((value) => <option key={value}>{value}</option>)}</select></Field>{needsSymbol && <InstrumentSelect value={symbol} selected={symbolSelected} onChange={(value) => { setSymbol(value); setSymbolSelected(false) }} onSelect={(instrument) => { setSymbol(instrument.symbol); setSymbolSelected(true); setError('') }} />}{trade ? <div className="grid grid-cols-2 gap-4"><Field label="Quantity"><input required min="0" step="any" type="number" value={quantityValue} onChange={(event) => setQuantityValue(event.target.value)} className={inputClass} placeholder="10" /></Field><Field label={`Price (${portfolio.currency})`}><input required min="0" step="any" type="number" value={price} onChange={(event) => setPrice(event.target.value)} className={inputClass} placeholder="220.15" /></Field></div> : <Field label={`Amount (${portfolio.currency})`}><input required min="0" step="any" type="number" value={amount} onChange={(event) => setAmount(event.target.value)} className={inputClass} placeholder="500.00" /></Field>}<div className="grid grid-cols-2 gap-4"><Field label="Fees"><input min="0" step="any" type="number" value={fees} onChange={(event) => setFees(event.target.value)} className={inputClass} /></Field><Field label="Date and time"><input required type="datetime-local" value={executedAt} onChange={(event) => setExecutedAt(event.target.value)} className={inputClass} /></Field></div><Field label="Notes"><textarea maxLength={500} rows={2} value={notes} onChange={(event) => setNotes(event.target.value)} className={inputClass} placeholder="Optional note" /></Field>{error && <ErrorMessage>{error}</ErrorMessage>}<button disabled={saving} className={submitClass}>{saving ? 'Saving…' : transaction ? 'Save changes' : 'Add transaction'}</button></form></Modal>
+  return <Modal title={transaction ? 'Edit transaction' : 'Add transaction'} description={`Recording in ${portfolio.name} · ${portfolio.currency}`} onClose={onClose}><form onSubmit={submit} className="mt-6 space-y-4"><Field label="Transaction type"><select value={type} onChange={(event) => setType(event.target.value as TransactionType)} className={inputClass}>{transactionTypes.map((value) => <option key={value}>{value}</option>)}</select></Field>{needsSymbol && <InstrumentSelect value={symbol} selected={symbolSelected} onChange={(value) => { setSymbol(value); setSymbolSelected(false) }} onSelect={(instrument) => { setSymbol(instrument.symbol); setSymbolSelected(true); setError('') }} />}{trade ? <div className="grid grid-cols-2 gap-4"><Field label="Quantity"><input required min="0" step="any" type="number" value={quantityValue} onChange={(event) => setQuantityValue(event.target.value)} className={inputClass} placeholder="10" /></Field><Field label={`Price (${portfolio.currency})`}><input required min="0" step="any" type="number" value={price} onChange={(event) => setPrice(event.target.value)} className={inputClass} placeholder="220.15" /></Field></div> : <Field label={`Amount (${portfolio.currency})`}><input required min="0" step="any" type="number" value={amount} onChange={(event) => setAmount(event.target.value)} className={inputClass} placeholder="500.00" /></Field>}{type === 'DIVIDEND' && <div><Field label={`Return of capital (${portfolio.currency})`}><input min="0" max={amount || undefined} step="any" type="number" value={returnOfCapitalAmount} onChange={(event) => setReturnOfCapitalAmount(event.target.value)} className={inputClass} /></Field><p className="mt-2 text-xs leading-5 text-[#7b867f]">Optional. Use a confirmed amount from your broker or final tax statement. This reduces the holding's cost basis.</p></div>}<div className="grid grid-cols-2 gap-4"><Field label="Fees"><input min="0" step="any" type="number" value={fees} onChange={(event) => setFees(event.target.value)} className={inputClass} /></Field><Field label="Date and time"><input required type="datetime-local" value={executedAt} onChange={(event) => setExecutedAt(event.target.value)} className={inputClass} /></Field></div><Field label="Notes"><textarea maxLength={500} rows={2} value={notes} onChange={(event) => setNotes(event.target.value)} className={inputClass} placeholder="Optional note" /></Field>{error && <ErrorMessage>{error}</ErrorMessage>}<button disabled={saving} className={submitClass}>{saving ? 'Saving…' : transaction ? 'Save changes' : 'Add transaction'}</button></form></Modal>
 }
 
 function InstrumentSelect({ value, selected, onChange, onSelect }: { value: string, selected: boolean, onChange: (value: string) => void, onSelect: (instrument: Instrument) => void }) {
