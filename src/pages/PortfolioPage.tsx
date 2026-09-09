@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { apiErrorMessage } from '../api/client'
 import { searchInstruments } from '../api/instruments'
-import { createTransaction, deleteTransaction, getHoldings, getPortfolioPerformance, getPortfolios, getTransactions, importFidelityActivity, updateTransaction } from '../api/portfolios'
+import { createTransaction, deleteTransaction, getHoldings, getPortfolios, getTransactions, importFidelityActivity, updateTransaction } from '../api/portfolios'
 import InstrumentMark from '../components/InstrumentMark'
 import type { AuthResponse } from '../types/auth'
 import type { Instrument } from '../types/instrument'
@@ -55,8 +55,6 @@ function PortfolioPage({ auth, section, requestedPortfolioId, onNeedAuth, onSele
   const [symbolFilter, setSymbolFilter] = useState('')
   const [loading, setLoading] = useState(Boolean(auth))
   const [detailsLoading, setDetailsLoading] = useState(false)
-  const [realizedGain, setRealizedGain] = useState(0)
-  const [cashDistributions, setCashDistributions] = useState(0)
   const [error, setError] = useState('')
   const [showTransaction, setShowTransaction] = useState(startWithTransaction)
   const [editing, setEditing] = useState<PortfolioTransaction | null>(null)
@@ -83,14 +81,11 @@ function PortfolioPage({ auth, section, requestedPortfolioId, onNeedAuth, onSele
     return Promise.all([
       getHoldings(auth, selectedId, signal),
       getTransactions(auth, selectedId, { symbol: symbolFilter.trim().toUpperCase(), type: typeFilter, page, size: 20 }, signal),
-      getPortfolioPerformance(auth, selectedId, signal),
-    ]).then(([holdingData, transactionData, performance]) => {
+    ]).then(([holdingData, transactionData]) => {
       setHoldings(holdingData)
       setTransactions(transactionData.content)
       setTotalTransactions(transactionData.totalElements)
       setTotalPages(transactionData.totalPages)
-      setRealizedGain(performance.realizedGain)
-      setCashDistributions(performance.cashDistributions)
     }).catch((reason: unknown) => {
       if (reason instanceof DOMException && reason.name === 'AbortError') return
       setError(apiErrorMessage(reason, 'Unable to load portfolio details.'))
@@ -152,18 +147,21 @@ function PortfolioPage({ auth, section, requestedPortfolioId, onNeedAuth, onSele
   return <main className="mx-auto max-w-[1560px] px-5 py-8 lg:px-8 lg:py-11">
     <div className="mb-8 flex flex-col justify-between gap-5 md:flex-row md:items-end">
       <div><p className="text-xs font-bold uppercase tracking-[.15em] text-[#506a84]">Investment ledger</p><h1 className="mt-2 text-[36px] font-semibold tracking-[-.045em] md:text-[46px]">{section === 'holdings' ? 'Holdings' : 'Transactions'}</h1><p className="mt-2 text-sm text-[#516c86]">{section === 'holdings' ? 'Positions calculated directly from your transaction history.' : 'Review and maintain the complete investment ledger.'}</p></div>
-      {section === 'transactions' && selected && <div className="flex flex-wrap gap-2 self-start md:self-auto"><button onClick={() => setShowFidelityImport(true)} className="flex items-center gap-2 rounded-xl border border-[#cfd8d1] bg-white px-4 py-3 text-sm font-bold text-[#284536] hover:bg-[#eef4fb]"><Icon className="size-4"><path d="M12 3v12M7 10l5 5 5-5M4 20h16" /></Icon>Import Fidelity CSV</button><button onClick={() => { setEditing(null); setShowTransaction(true) }} className="flex items-center gap-2 rounded-xl bg-[#38bdf8] px-4 py-3 text-sm font-bold text-[#162b45] hover:bg-[#22b4ee]"><Icon className="size-4"><path d="M12 5v14M5 12h14" /></Icon>Add transaction</button></div>}
+      {selected && <div className="flex flex-wrap gap-2 self-start md:self-auto">{section === 'transactions' && <button onClick={() => setShowFidelityImport(true)} className="flex items-center gap-2 rounded-xl border border-[#cfd8d1] bg-white px-4 py-3 text-sm font-bold text-[#284536] hover:bg-[#eef4fb]"><Icon className="size-4"><path d="M12 3v12M7 10l5 5 5-5M4 20h16" /></Icon>Import Fidelity CSV</button>}<button onClick={() => { setEditing(null); setShowTransaction(true) }} className="flex items-center gap-2 rounded-xl bg-[#38bdf8] px-4 py-3 text-sm font-bold text-[#162b45] hover:bg-[#22b4ee]"><Icon className="size-4"><path d="M12 5v14M5 12h14" /></Icon>Add transaction</button></div>}
     </div>
 
     {error && <div role="alert" className="mb-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>}
 
     {loading ? <div className="h-72 animate-pulse rounded-[22px] bg-white" /> : portfolios.length === 0 ? <div className="rounded-[22px] border border-dashed border-[#b9cce0] bg-white py-20 text-center"><h2 className="text-xl font-semibold">Create your first portfolio</h2><p className="mt-2 text-sm text-[#526b84]">Use the + beside the portfolio selector in the top menu.</p></div> : <>
       {section === 'holdings' && <>
-      <section className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <SummaryCard label="Market value" value={totals.quotedPositions ? money(totals.marketValue, selected?.currency) : '—'} note={`${totals.quotedPositions} of ${holdings.length} positions quoted`} />
-        <SummaryCard label="Unrealized gain" value={totals.quotedPositions ? money(totals.unrealizedGain, selected?.currency) : '—'} note={`Cost basis ${money(totals.costBasis, selected?.currency)}`} positive={totals.quotedPositions ? totals.unrealizedGain >= 0 : undefined} />
-        <SummaryCard label="Realized gain" value={money(realizedGain, selected?.currency)} note="Includes open and fully sold positions" positive={realizedGain >= 0} />
-        <SummaryCard label="Cash distributions" value={money(cashDistributions, selected?.currency)} note="Includes dividends and return of capital" positive={cashDistributions > 0 ? true : undefined} />
+      <section className="mb-5 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-[#c4d5e8] bg-white px-4 py-3 text-sm shadow-sm sm:px-5">
+        <span className="font-semibold text-[#0d243d]">{selected?.name}</span>
+        <span className="hidden h-4 w-px bg-[#dbe6f2] sm:block" />
+        <span className="text-[#526b84]">{holdings.length} open position{holdings.length === 1 ? '' : 's'}</span>
+        <span className="hidden h-4 w-px bg-[#dbe6f2] sm:block" />
+        <span className="text-[#526b84]">Market value <strong className="ml-1 tabular-nums text-[#0d243d]">{totals.quotedPositions ? money(totals.marketValue, selected?.currency) : '—'}</strong></span>
+        <span className="hidden h-4 w-px bg-[#dbe6f2] sm:block" />
+        <span className="text-[#526b84]">Unrealized <strong className={`ml-1 tabular-nums ${totals.unrealizedGain >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{totals.quotedPositions ? `${totals.unrealizedGain >= 0 ? '+' : ''}${money(totals.unrealizedGain, selected?.currency)}` : '—'}</strong></span>
       </section>
 
       <section className="mb-5 overflow-hidden rounded-[22px] border border-[#c4d5e8] bg-white">
@@ -213,10 +211,6 @@ function FidelityImportModal({ auth, portfolio, onClose, onImported }: { auth: A
       <div className="flex gap-2"><button type="button" onClick={onClose} className="rounded-xl border border-[#c3d5e8] px-4 py-3 text-sm font-bold">{result ? 'Close' : 'Cancel'}</button><button disabled={importing || !file} className={`${submitClass} flex-1`}>{importing ? 'Importing…' : result ? 'Import again' : 'Import activity'}</button></div>
     </form>
   </Modal>
-}
-
-function SummaryCard({ label, value, note, positive }: { label: string, value: string, note: string, positive?: boolean }) {
-  return <div className="rounded-[20px] border border-[#c4d5e8] bg-white p-5"><p className="text-[10px] font-bold uppercase tracking-[.14em] text-[#5e7790]">{label}</p><p className={`mt-2 text-2xl font-semibold tracking-[-.035em] ${positive === undefined ? '' : positive ? 'text-emerald-600' : 'text-rose-600'}`}>{value}</p><p className="mt-2 text-xs text-[#526b84]">{note}</p></div>
 }
 
 function TransactionRow({ transaction, onEdit, onDelete }: { transaction: PortfolioTransaction, onEdit: () => void, onDelete: () => void }) {

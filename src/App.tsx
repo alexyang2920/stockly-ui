@@ -103,6 +103,7 @@ function App() {
   const [preferredPortfolioId, setPreferredPortfolioId] = useState<string | undefined>()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [showModal, setShowModal] = useState(false)
+  const [portfolioCreateRequest, setPortfolioCreateRequest] = useState(0)
   const [toast, setToast] = useState('')
   const [auth, setAuth] = useState<AuthResponse | null>(readStoredAuth)
   const [route, setRoute] = useState<Route>(routeFromLocation)
@@ -222,7 +223,7 @@ function App() {
           </nav>
 
           <HeaderInstrumentSearch className="ml-auto hidden w-44 md:block lg:w-48 xl:w-56" onSelect={(symbol) => navigate({ view: 'instrument', symbol })} />
-          {auth && <div className="hidden md:block"><PortfolioNav auth={auth} selectedId={route.view === 'portfolio' || route.view === 'dividends' ? route.portfolioId ?? preferredPortfolioId : preferredPortfolioId} onSelect={selectPortfolio} /></div>}
+          {auth && <div className="hidden md:block"><PortfolioNav auth={auth} selectedId={route.view === 'portfolio' || route.view === 'dividends' ? route.portfolioId ?? preferredPortfolioId : preferredPortfolioId} onSelect={selectPortfolio} createRequest={portfolioCreateRequest} /></div>}
           {auth ? <div className="hidden md:block"><UserMenu auth={auth} darkMode={darkMode} onToggleTheme={toggleTheme} onAdmin={() => navigate({ view: 'admin' })} onSignOut={signOut} /></div> : <button onClick={() => setShowModal(true)} className="hidden items-center gap-2 rounded-xl bg-[#0b3b66] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(23,60,44,.18)] transition hover:bg-[#0b4f89] md:flex"><Icon name="user" className="size-4" /> Sign in</button>}
           <button onClick={() => setMobileOpen(!mobileOpen)} className="ml-auto grid size-10 place-items-center rounded-xl border border-[#c4d5e8] bg-white md:hidden" aria-label="Open menu"><Icon name={mobileOpen ? 'close' : 'menu'} /></button>
         </div>
@@ -234,7 +235,7 @@ function App() {
         </nav>}
       </header>
 
-      {route.view === 'home' && <OverviewPage auth={auth} portfolioId={preferredPortfolioId} onNeedAuth={() => setShowModal(true)} onOpenHoldings={() => auth ? navigate({ view: 'portfolio', section: 'holdings', portfolioId: preferredPortfolioId, addTransaction: false }) : setShowModal(true)} onOpenDividends={() => auth ? navigate({ view: 'dividends', portfolioId: preferredPortfolioId }) : setShowModal(true)} onSelectInstrument={(symbol) => navigate({ view: 'instrument', symbol })} />}
+      {route.view === 'home' && <OverviewPage auth={auth} portfolioId={preferredPortfolioId} onNeedAuth={() => setShowModal(true)} onCreatePortfolio={() => setPortfolioCreateRequest((request) => request + 1)} onOpenHoldings={() => auth ? navigate({ view: 'portfolio', section: 'holdings', portfolioId: preferredPortfolioId, addTransaction: false }) : setShowModal(true)} onOpenDividends={() => auth ? navigate({ view: 'dividends', portfolioId: preferredPortfolioId }) : setShowModal(true)} onSelectInstrument={(symbol) => navigate({ view: 'instrument', symbol })} />}
       {route.view === 'home' && window.location.hash === '#legacy-overview' && <main className="mx-auto max-w-[1560px] px-5 py-8 lg:px-8 lg:py-11">
         <section className="mb-9 flex flex-col justify-between gap-5 md:flex-row md:items-end">
           <div>

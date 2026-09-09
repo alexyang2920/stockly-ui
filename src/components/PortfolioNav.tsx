@@ -11,9 +11,10 @@ type PortfolioNavProps = {
   selectedId?: string
   onSelect: (portfolioId: string) => void
   mobile?: boolean
+  createRequest?: number
 }
 
-function PortfolioNav({ auth, selectedId, onSelect, mobile = false }: PortfolioNavProps) {
+function PortfolioNav({ auth, selectedId, onSelect, mobile = false, createRequest = 0 }: PortfolioNavProps) {
   const [portfolios, setPortfolios] = useState<Portfolio[]>([])
   const [showCreate, setShowCreate] = useState(false)
   const [managingPortfolio, setManagingPortfolio] = useState<Portfolio | null>(null)
@@ -23,6 +24,7 @@ function PortfolioNav({ auth, selectedId, onSelect, mobile = false }: PortfolioN
   const effectiveSelectedId = selectedId ?? accountSelectedId
   const activePortfolio = portfolios.find((portfolio) => portfolio.id === effectiveSelectedId) ?? portfolios[0]
   const menuRef = useRef<HTMLDivElement>(null)
+  const handledCreateRequest = useRef(createRequest)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -46,6 +48,13 @@ function PortfolioNav({ auth, selectedId, onSelect, mobile = false }: PortfolioN
     document.addEventListener('mousedown', close)
     return () => document.removeEventListener('mousedown', close)
   }, [menuOpen])
+
+  useEffect(() => {
+    if (createRequest === 0 || createRequest === handledCreateRequest.current) return
+    handledCreateRequest.current = createRequest
+    setManagingPortfolio(null)
+    setShowCreate(true)
+  }, [createRequest])
 
   return <>
     <div ref={menuRef} className={`relative ${mobile ? 'mb-3 block w-full' : 'hidden md:block'}`}>
