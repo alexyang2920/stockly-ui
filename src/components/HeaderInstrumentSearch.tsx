@@ -80,7 +80,7 @@ export default function HeaderInstrumentSearch({ className = '', mobile = false,
 
   const showResults = open && Boolean(query.trim())
   return <div ref={rootRef} className={`relative ${className}`}>
-    <svg className={`pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#879089] ${mobile ? 'size-4' : 'size-3.5'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></svg>
+    <svg className={`pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#607890] ${mobile ? 'size-4' : 'size-3.5'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></svg>
     <input
       value={query}
       onChange={(event) => { setQuery(event.target.value.slice(0, 50)); setOpen(true) }}
@@ -91,12 +91,12 @@ export default function HeaderInstrumentSearch({ className = '', mobile = false,
       aria-expanded={showResults}
       aria-controls={resultsId}
       aria-autocomplete="list"
-      className={`w-full border border-[#dfe4df] bg-white pl-10 outline-none placeholder:text-[#879089] focus:border-[#789887] focus:ring-4 focus:ring-[#e2ebe5] dark:border-[#35463d] dark:bg-[#18231e] dark:text-[#e5ebe7] dark:focus:ring-[#25342c] ${mobile ? 'rounded-xl py-3 pr-3 text-sm' : 'rounded-xl py-2.5 pr-3 text-[11px] shadow-sm'}`}
+      className={`w-full border border-[#c4d5e8] bg-white pl-10 outline-none placeholder:text-[#607890] focus:border-[#327ab7] focus:ring-4 focus:ring-[#d9e7f5] dark:border-[#304258] dark:bg-[#16283b] dark:text-[#e5ebe7] dark:focus:ring-[#22364e] ${mobile ? 'rounded-xl py-3 pr-3 text-sm' : 'rounded-xl py-2.5 pr-3 text-[11px] shadow-sm'}`}
       placeholder="Search stocks or ETFs"
       aria-label="Search stocks or ETFs"
     />
-    {showResults && <div id={resultsId} role="listbox" className="absolute left-0 right-0 top-full z-70 mt-2 max-h-[min(26rem,70vh)] overflow-y-auto rounded-2xl border border-[#dce3dd] bg-white p-1.5 shadow-[0_18px_50px_rgba(20,38,29,.22)] dark:border-[#35463d] dark:bg-[#18231e]">
-      {loading && !results.length ? <p className="px-3 py-5 text-center text-xs text-[#7b867f]">Searching instruments…</p> : results.length ? results.map((instrument, index) => <button
+    {showResults && <div id={resultsId} role="listbox" className="absolute left-0 right-0 top-full z-70 mt-2 max-h-[min(26rem,70vh)] overflow-y-auto rounded-2xl border border-[#c3d5e8] bg-white p-1.5 shadow-[0_18px_50px_rgba(20,38,29,.22)] dark:border-[#304258] dark:bg-[#16283b]">
+      {loading && !results.length ? <p className="px-3 py-5 text-center text-xs text-[#526b84]">Searching instruments…</p> : results.length ? results.map((instrument, index) => <button
         key={instrument.symbol}
         type="button"
         role="option"
@@ -104,8 +104,8 @@ export default function HeaderInstrumentSearch({ className = '', mobile = false,
         onMouseEnter={() => setHighlighted(index)}
         onMouseDown={(event) => event.preventDefault()}
         onClick={() => choose(instrument)}
-        className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition ${highlighted === index ? 'bg-[#eef2ee] dark:bg-[#25342c]' : 'hover:bg-[#f7f9f7] dark:hover:bg-[#202d26]'}`}
-      ><InstrumentMark symbol={instrument.symbol} size="small" /><span className="min-w-0 flex-1"><span className="flex items-center gap-2"><strong className="text-sm text-[#18251f] dark:text-[#edf2ef]">{instrument.symbol}</strong><span className="rounded-md bg-[#f0f3f0] px-1.5 py-0.5 text-[9px] font-semibold text-[#748078] dark:bg-[#2a3830]">{instrument.instrumentType}</span></span><span className="mt-0.5 block truncate text-xs text-[#7b867f]">{instrument.name}</span></span><span className="shrink-0 text-[10px] text-[#929b95]">{instrument.exchange}</span></button>) : !loading ? <p className="px-3 py-5 text-center text-xs text-[#7b867f]">No matching stocks or ETFs</p> : null}
+        className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition ${highlighted === index ? 'bg-[#e8f1fb] dark:bg-[#22364e]' : 'hover:bg-[#f4f8fd] dark:hover:bg-[#1d3045]'}`}
+      ><InstrumentMark symbol={instrument.symbol} size="small" /><span className="min-w-0 flex-1"><span className="flex items-center gap-2"><strong className="text-sm text-[#18251f] dark:text-[#edf2ef]">{instrument.symbol}</strong><span className="rounded-md bg-[#f0f3f0] px-1.5 py-0.5 text-[9px] font-semibold text-[#526d87] dark:bg-[#2a3830]">{instrument.instrumentType}</span></span><span className="mt-0.5 block truncate text-xs text-[#526b84]">{instrument.name}</span></span><span className="shrink-0 text-[10px] text-[#6d8096]">{instrument.exchange}</span></button>) : !loading ? <p className="px-3 py-5 text-center text-xs text-[#526b84]">No matching stocks or ETFs</p> : null}
     </div>}
   </div>
 }

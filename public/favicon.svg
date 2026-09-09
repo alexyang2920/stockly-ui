@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
   <title id="title">Stockly</title>
-  <rect width="64" height="64" rx="16" fill="#173c2c"/>
-  <path d="M16 45V37M28 45V30M40 45V23" fill="none" stroke="#8db5a0" stroke-width="6" stroke-linecap="round"/>
+  <rect width="64" height="64" rx="16" fill="#0b3b66"/>
+  <path d="M16 45V37M28 45V30M40 45V23" fill="none" stroke="#8bc5f5" stroke-width="6" stroke-linecap="round"/>
   <path d="m13 36 12-10 9 7 16-17" fill="none" stroke="#d8f768" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
   <path d="M41 16h9v9" fill="none" stroke="#d8f768" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

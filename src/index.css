@@ -8,8 +8,8 @@
 
 :root {
   font-family: var(--font-sans);
-  color: #15231d;
-  background: #f7f8f5;
+  color: #0d243d;
+  background: #edf4fc;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -21,8 +21,8 @@
 
 :root.dark {
   color-scheme: dark;
-  color: #e8eee9;
-  background: #0c1210;
+  color: #eaf1fb;
+  background: #0b1626;
 }
 
 * {
@@ -55,50 +55,50 @@ body,
 
 /* The app predates theme tokens, so these mappings turn its existing palette into
    a coherent dark surface system without duplicating every component class. */
-.dark [class~="bg-[#f7f8f5]"] { background-color: #0c1210 !important; }
-.dark [class~="bg-[#fbfcf9]/95"] { background-color: rgb(14 21 18 / .95) !important; }
-.dark [class~="bg-white"] { background-color: #141d19 !important; }
-.dark [class~="bg-[#fafbf9]"],
-.dark [class~="bg-[#fafcf9]"],
-.dark [class~="bg-[#f7f9f7]"],
-.dark [class~="bg-[#f7f9f6]"],
-.dark [class~="bg-[#f5f7f5]"] { background-color: #111915 !important; }
-.dark [class~="bg-[#eef2ee]"],
-.dark [class~="bg-[#eef4ef]"],
-.dark [class~="bg-[#eef1ee]"],
-.dark [class~="bg-[#edf1ed]"],
-.dark [class~="bg-[#eaf1ec]"],
-.dark [class~="bg-[#e9efea]"] { background-color: #203028 !important; }
-.dark [class~="bg-[#eaf3eb]"] { background-color: #182a21 !important; }
-.dark [class~="bg-[#edf0ed]"] { background-color: #29332e !important; }
+.dark [class~="bg-[#edf4fc]"] { background-color: #0b1626 !important; }
+.dark [class~="bg-[#f4f8fd]/95"] { background-color: rgb(11 22 38 / .95) !important; }
+.dark [class~="bg-white"] { background-color: #132235 !important; }
+.dark [class~="bg-[#f9fbff]"],
+.dark [class~="bg-[#fafcff]"],
+.dark [class~="bg-[#f4f8fd]"],
+.dark [class~="bg-[#f4f8fd]"],
+.dark [class~="bg-[#f1f6fc]"] { background-color: #101d31 !important; }
+.dark [class~="bg-[#e8f1fb]"],
+.dark [class~="bg-[#e7f1fc]"],
+.dark [class~="bg-[#e6f0fb]"],
+.dark [class~="bg-[#e6f0fb]"],
+.dark [class~="bg-[#e4effb]"],
+.dark [class~="bg-[#e2edfa]"] { background-color: #1a3049 !important; }
+.dark [class~="bg-[#e4effc]"] { background-color: #14283f !important; }
+.dark [class~="bg-[#edf0ed]"] { background-color: #263b52 !important; }
 
 .dark [class*="border-[#d"],
-.dark [class*="border-[#e"] { border-color: #2a3931 !important; }
+.dark [class*="border-[#e"] { border-color: #2d4056 !important; }
 
-.dark [class~="text-[#14251d]"],
-.dark [class~="text-[#15231d]"],
-.dark [class~="text-[#1b1f23]"] { color: #edf3ef !important; }
+.dark [class~="text-[#102b47]"],
+.dark [class~="text-[#0d243d]"],
+.dark [class~="text-[#1b1f23]"] { color: #edf4ff !important; }
 .dark [class*="text-[#6"],
 .dark [class*="text-[#7"],
 .dark [class*="text-[#8"],
-.dark [class*="text-[#9"] { color: #9eada5 !important; }
-.dark [class~="text-[#24563f]"],
-.dark [class~="text-[#285d43]"],
-.dark [class~="text-[#2e684c]"] { color: #8dd0aa !important; }
+.dark [class*="text-[#9"] { color: #9aabc0 !important; }
+.dark [class~="text-[#0b5597]"],
+.dark [class~="text-[#0b5b9e]"],
+.dark [class~="text-[#0d6eaf]"] { color: #8bc5f5 !important; }
 
 .dark input,
-.dark select { color: #e8eee9; }
-.dark input::placeholder { color: #728078; }
-.dark option { background: #141d19; color: #e8eee9; }
+.dark select { color: #eaf1fb; }
+.dark input::placeholder { color: #72859c; }
+.dark option { background: #132235; color: #eaf1fb; }
 
 .dark .hover\:bg-white:hover,
 .dark .hover\:bg-\[\#f7faf7\]:hover,
-.dark .hover\:bg-\[\#f7f9f7\]:hover,
-.dark .hover\:bg-\[\#fafcf9\]:hover,
-.dark .hover\:bg-\[\#f3f5f2\]:hover,
-.dark .hover\:bg-\[\#f1f3f1\]:hover { background-color: #1b2821 !important; }
+.dark .hover\:bg-\[\#f4f8fd\]:hover,
+.dark .hover\:bg-\[\#fafcff\]:hover,
+.dark .hover\:bg-\[\#edf4fb\]:hover,
+.dark .hover\:bg-\[\#f1f3f1\]:hover { background-color: #1c3048 !important; }
 
 ::selection {
-  background: #d8f768;
-  color: #173c2c;
+  background: #38bdf8;
+  color: #0b3b66;
 }

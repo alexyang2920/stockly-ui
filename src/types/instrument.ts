@@ -72,10 +72,3 @@ export type StockSplitEvent = {
   splitTo: number
   historicalAdjustmentFactor: number | null
 }
-
-export type Watchlist = {
-  id: string
-  name: string
-  createdAt: string
-  instruments: Instrument[]
-}
