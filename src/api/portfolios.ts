@@ -36,10 +36,12 @@ export function getDividendCalendar(auth: AuthResponse, portfolioId: string, fro
   return apiRequest<DividendCalendarEvent[]>(`/portfolios/${portfolioId}/dividend-calendar?${params}`, { auth, signal })
 }
 
-export function getTransactions(auth: AuthResponse, portfolioId: string, filters: { symbol?: string, type?: TransactionType | '', page?: number, size?: number } = {}, signal?: AbortSignal) {
+export function getTransactions(auth: AuthResponse, portfolioId: string, filters: { symbol?: string, type?: TransactionType | '', from?: string, to?: string, page?: number, size?: number } = {}, signal?: AbortSignal) {
   const params = new URLSearchParams({ page: String(filters.page ?? 0), size: String(filters.size ?? 50) })
   if (filters.symbol) params.set('symbol', filters.symbol)
   if (filters.type) params.set('type', filters.type)
+  if (filters.from) params.set('from', `${filters.from}T00:00:00.000Z`)
+  if (filters.to) params.set('to', `${filters.to}T23:59:59.999Z`)
   return apiRequest<Page<PortfolioTransaction>>(`/portfolios/${portfolioId}/transactions?${params}`, { auth, signal })
 }
 

@@ -53,6 +53,8 @@ function PortfolioPage({ auth, section, requestedPortfolioId, onNeedAuth, onSele
   const [page, setPage] = useState(0)
   const [typeFilter, setTypeFilter] = useState<TransactionType | ''>('')
   const [symbolFilter, setSymbolFilter] = useState('')
+  const [fromFilter, setFromFilter] = useState('')
+  const [toFilter, setToFilter] = useState('')
   const [loading, setLoading] = useState(Boolean(auth))
   const [detailsLoading, setDetailsLoading] = useState(false)
   const [error, setError] = useState('')
@@ -80,7 +82,7 @@ function PortfolioPage({ auth, section, requestedPortfolioId, onNeedAuth, onSele
     if (!auth || !selectedId) return Promise.resolve()
     return Promise.all([
       getHoldings(auth, selectedId, signal),
-      getTransactions(auth, selectedId, { symbol: symbolFilter.trim().toUpperCase(), type: typeFilter, page, size: 20 }, signal),
+      getTransactions(auth, selectedId, { symbol: symbolFilter.trim().toUpperCase(), type: typeFilter, from: fromFilter, to: toFilter, page, size: 20 }, signal),
     ]).then(([holdingData, transactionData]) => {
       setHoldings(holdingData)
       setTransactions(transactionData.content)
@@ -90,7 +92,7 @@ function PortfolioPage({ auth, section, requestedPortfolioId, onNeedAuth, onSele
       if (reason instanceof DOMException && reason.name === 'AbortError') return
       setError(apiErrorMessage(reason, 'Unable to load portfolio details.'))
     }).finally(() => { if (!signal?.aborted) setDetailsLoading(false) })
-  }, [auth, page, selectedId, symbolFilter, typeFilter])
+  }, [auth, fromFilter, page, selectedId, symbolFilter, toFilter, typeFilter])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -172,8 +174,8 @@ function PortfolioPage({ auth, section, requestedPortfolioId, onNeedAuth, onSele
 
       {section === 'transactions' &&
       <section className="overflow-hidden rounded-[22px] border border-[#c4d5e8] bg-white">
-        <div className="flex flex-col gap-4 border-b border-[#dbe6f2] px-5 py-5 lg:flex-row lg:items-center lg:justify-between lg:px-6"><div><h2 className="text-lg font-semibold tracking-[-.02em]">Transactions</h2><p className="mt-1 text-xs text-[#526b84]">{totalTransactions} recorded entries</p></div><div className="flex flex-col gap-2 sm:flex-row"><input value={symbolFilter} onChange={(event) => { setSymbolFilter(event.target.value.slice(0, 14)); setPage(0) }} className="rounded-xl border border-[#c4d5e8] bg-[#f9fbff] px-3 py-2.5 text-sm uppercase outline-none focus:border-[#3077b4]" placeholder="Filter symbol" aria-label="Filter transactions by symbol" /><select value={typeFilter} onChange={(event) => { setTypeFilter(event.target.value as TransactionType | ''); setPage(0) }} className="rounded-xl border border-[#c4d5e8] bg-[#f9fbff] px-3 py-2.5 text-sm outline-none" aria-label="Filter transactions by type"><option value="">All types</option>{transactionTypes.map((type) => <option key={type}>{type}</option>)}</select></div></div>
-        {detailsLoading ? <div className="h-48 animate-pulse bg-[#f4f8fd]" /> : transactions.length === 0 ? <EmptyState title="No transactions found" text={symbolFilter || typeFilter ? 'Try changing the current filters.' : 'Add your first transaction to create a holding.'} /> : <div><div className="divide-y divide-[#ecefec]">{transactions.map((transaction) => <TransactionRow key={transaction.id} transaction={transaction} onEdit={() => { setEditing(transaction); setShowTransaction(true) }} onDelete={() => removeTransaction(transaction)} />)}</div>{totalPages > 1 && <div className="flex items-center justify-between border-t border-[#dbe6f2] px-4 py-3 text-xs sm:px-5"><button disabled={page === 0} onClick={() => setPage((current) => current - 1)} className="rounded-lg px-3 py-2 font-bold disabled:opacity-35">Previous</button><span className="text-[#526b84]">{page + 1} / {totalPages}</span><button disabled={page + 1 >= totalPages} onClick={() => setPage((current) => current + 1)} className="rounded-lg px-3 py-2 font-bold disabled:opacity-35">Next</button></div>}</div>}
+        <div className="flex flex-col gap-4 border-b border-[#dbe6f2] px-5 py-5 lg:flex-row lg:items-center lg:justify-between lg:px-6"><div><h2 className="text-lg font-semibold tracking-[-.02em]">Transactions</h2><p className="mt-1 text-xs text-[#526b84]">{totalTransactions} recorded entries</p></div><div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap"><input value={symbolFilter} onChange={(event) => { setSymbolFilter(event.target.value.slice(0, 14)); setPage(0) }} className="rounded-xl border border-[#c4d5e8] bg-[#f9fbff] px-3 py-2.5 text-sm uppercase outline-none focus:border-[#3077b4]" placeholder="Filter symbol" aria-label="Filter transactions by symbol" /><select value={typeFilter} onChange={(event) => { setTypeFilter(event.target.value as TransactionType | ''); setPage(0) }} className="rounded-xl border border-[#c4d5e8] bg-[#f9fbff] px-3 py-2.5 text-sm outline-none" aria-label="Filter transactions by type"><option value="">All types</option>{transactionTypes.map((type) => <option key={type}>{type}</option>)}</select><input type="date" value={fromFilter} max={toFilter || undefined} onChange={(event) => { setFromFilter(event.target.value); setPage(0) }} className="rounded-xl border border-[#c4d5e8] bg-[#f9fbff] px-3 py-2.5 text-sm outline-none" aria-label="Transactions from date" /><input type="date" value={toFilter} min={fromFilter || undefined} onChange={(event) => { setToFilter(event.target.value); setPage(0) }} className="rounded-xl border border-[#c4d5e8] bg-[#f9fbff] px-3 py-2.5 text-sm outline-none" aria-label="Transactions through date" />{(symbolFilter || typeFilter || fromFilter || toFilter) && <button onClick={() => { setSymbolFilter(''); setTypeFilter(''); setFromFilter(''); setToFilter(''); setPage(0) }} className="rounded-xl px-3 py-2.5 text-sm font-bold text-[#0b5b9e] hover:bg-[#e8f1fb]">Clear</button>}</div></div>
+        {detailsLoading ? <div className="h-48 animate-pulse bg-[#f4f8fd]" /> : transactions.length === 0 ? <EmptyState title="No transactions found" text={symbolFilter || typeFilter || fromFilter || toFilter ? 'Try changing or clearing the current filters.' : 'Add your first transaction to create a holding.'} /> : <div><div className="divide-y divide-[#ecefec]">{transactions.map((transaction) => <TransactionRow key={transaction.id} transaction={transaction} onEdit={() => { setEditing(transaction); setShowTransaction(true) }} onDelete={() => removeTransaction(transaction)} />)}</div>{totalPages > 1 && <div className="flex items-center justify-between border-t border-[#dbe6f2] px-4 py-3 text-xs sm:px-5"><button disabled={page === 0} onClick={() => setPage((current) => current - 1)} className="rounded-lg px-3 py-2 font-bold disabled:opacity-35">Previous</button><span className="text-[#526b84]">{page + 1} / {totalPages}</span><button disabled={page + 1 >= totalPages} onClick={() => setPage((current) => current + 1)} className="rounded-lg px-3 py-2 font-bold disabled:opacity-35">Next</button></div>}</div>}
       </section>
       }
     </>}
