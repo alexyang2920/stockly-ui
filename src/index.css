@@ -102,3 +102,22 @@ body,
   background: #38bdf8;
   color: #0b3b66;
 }
+
+/* Shared application surfaces. Keep page-specific grids and state styling in the
+   component, but use these primitives when a visual treatment is reused. */
+.page-shell { width: min(100% - 2.5rem, 1560px); margin-inline: auto; padding-block: 2rem; }
+.auth-shell { width: min(100% - 2.5rem, 900px); margin-inline: auto; padding-block: 4rem; }
+.surface-card { border: 1px solid #c4d5e8; border-radius: 22px; background: white; }
+.surface-card--flush { overflow: hidden; }
+.auth-card { border: 1px solid #c4d5e8; border-radius: 24px; background: white; padding: 4rem 1.75rem; text-align: center; }
+.page-eyebrow { color: #506a84; font-size: .75rem; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; }
+.page-title { margin-top: .5rem; font-size: 2.25rem; font-weight: 600; letter-spacing: -.045em; }
+.page-description { margin-top: .5rem; color: #516c86; font-size: .875rem; }
+.button-primary { border-radius: .75rem; background: #0b3b66; padding: .75rem 1.25rem; color: white; font-size: .875rem; font-weight: 700; }
+.button-primary:hover { background: #0b4f89; }
+
+.dark .surface-card, .dark .auth-card { border-color: #2d4056; background: #132235; }
+.dark .page-eyebrow, .dark .page-description { color: #9aabc0; }
+
+@media (min-width: 768px) { .page-title { font-size: 2.875rem; } }
+@media (min-width: 1024px) { .page-shell { padding-block: 2.75rem; } }

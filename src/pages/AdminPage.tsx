@@ -121,7 +121,7 @@ function AdminPage({ auth, onNeedAuth }: { auth: AuthResponse | null, onNeedAuth
     finally { setFinancialSyncing(false) }
   }
 
-  return <main className="mx-auto max-w-[1560px] px-5 py-8 lg:px-8 lg:py-11">
+  return <main className="page-shell">
     <div className="mb-6"><p className="text-xs font-bold uppercase tracking-[.15em] text-[#506a84]">Stockly operations</p><h1 className="mt-2 text-[38px] font-semibold tracking-[-.045em] md:text-[48px]">Administration</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-[#516c86]">Manage external datasets and maintain the instrument catalog.</p></div>
     <nav className="mb-7 flex overflow-x-auto border-b border-[#c4d5e8]" aria-label="Administration sections">{([['market', 'Market Data'], ['instruments', 'Instruments'], ['financial', 'Financial Data']] as const).map(([key, label]) => <button key={key} onClick={() => { setTab(key); setError('') }} className={`relative min-w-max px-4 py-4 text-sm font-bold transition-colors after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:transition ${tab === key ? 'text-[#0b3b66] after:bg-[#0b5b9e] dark:text-[#bddcff]' : 'text-[#566f88] after:bg-transparent hover:bg-[#edf4fb] hover:text-[#0b5b9e]'}`} aria-current={tab === key ? 'page' : undefined}>{label}</button>)}</nav>
 

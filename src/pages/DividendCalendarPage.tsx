@@ -89,15 +89,15 @@ function DividendCalendarPage({ auth, requestedPortfolioId, onNeedAuth, onSelect
 
   if (!auth) return <main className="mx-auto max-w-[900px] px-5 py-16"><section className="rounded-[24px] border border-[#c4d5e8] bg-white px-7 py-16 text-center"><span className="mx-auto grid size-14 place-items-center rounded-2xl bg-[#e4effb] text-2xl">◫</span><h1 className="mt-5 text-2xl font-semibold">Your dividend calendar</h1><p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[#536d86]">Sign in to see expected payments for the instruments you hold.</p><button onClick={onNeedAuth} className="mt-6 rounded-xl bg-[#0b3b66] px-5 py-3 text-sm font-bold text-white">Sign in to continue</button></section></main>
 
-  return <main className="mx-auto max-w-[1560px] px-5 py-8 lg:px-8 lg:py-11">
+  return <main className="page-shell">
     <div className="mb-8 flex flex-col justify-between gap-5 md:flex-row md:items-end">
-      <div><p className="text-xs font-bold uppercase tracking-[.15em] text-[#506a84]">Income planning</p><h1 className="mt-2 text-[36px] font-semibold tracking-[-.045em] md:text-[46px]">Dividend calendar</h1><p className="mt-2 text-sm text-[#516c86]">Distributions calculated from the shares you owned before each ex-dividend date. Market dates follow U.S. Eastern Time.</p></div>
+      <div><p className="page-eyebrow">Income planning</p><h1 className="page-title">Dividend calendar</h1><p className="page-description">Distributions calculated from the shares you owned before each ex-dividend date. Market dates follow U.S. Eastern Time.</p></div>
       <button onClick={() => setMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1))} className="self-start rounded-xl border border-[#c4d5e8] bg-white px-4 py-2.5 text-sm font-bold shadow-sm">Today</button>
     </div>
     {error && <div role="alert" className="mb-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>}
     {portfolios.length === 0 && !loading ? <section className="rounded-[22px] border border-dashed border-[#b9cce0] bg-white py-20 text-center"><h2 className="text-xl font-semibold">No portfolio selected</h2><p className="mt-2 text-sm text-[#526b84]">Create a portfolio and add a position to start planning dividend income.</p></section> : <>
       <AnnualIncomeOverview total={total} currency={selected?.currency} marketValue={marketValue} months={forecastMonths} monthlyIncome={monthlyIncome} monthlyBreakdown={monthlyBreakdown} scheduled={scheduledEvents.length} sources={symbols} events={events} />
-      <section className="overflow-hidden rounded-[22px] border border-[#c4d5e8] bg-white">
+      <section className="surface-card surface-card--flush">
         <div className="flex items-center justify-between border-b border-[#dbe6f2] px-4 py-4 sm:px-6">
           <button disabled={monthOffset <= 0} onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} className="grid size-10 place-items-center rounded-xl border border-[#c4d5e8] hover:bg-[#f4f8fd] disabled:cursor-not-allowed disabled:opacity-30" aria-label="Previous month">←</button>
           <div className="text-center"><div className="flex items-center justify-center gap-2"><h2 className="text-lg font-semibold tracking-[-.02em]">{title}</h2><span className="rounded-lg bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700">+{money(monthlyTotal, selected?.currency)}</span></div><p className="mt-0.5 text-[11px] text-[#526b84]">Announced payments · projected distributions</p></div>
