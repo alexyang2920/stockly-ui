@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { apiErrorMessage } from '../api/client'
 import { getDividendCalendar, getHoldings, getPortfolioPerformance, getPortfolioValueHistory, getPortfolios } from '../api/portfolios'
 import type { AuthResponse } from '../types/auth'
-import type { Holding, Portfolio, PortfolioValuePoint } from '../types/portfolio'
+import type { Holding, Portfolio, PortfolioPerformance, PortfolioValuePoint } from '../types/portfolio'
 import InstrumentMark from '../components/InstrumentMark'
 
 const colors = ['#38a8a1', '#4d88d8', '#8b5cf6', '#e8a63a', '#e56f6f', '#6f9e5d', '#9b7b66']
@@ -17,13 +17,15 @@ const holdingGroup = (holding: Holding) => holding.instrumentType === 'ETF' ? 'F
 function OverviewPage({ auth, portfolioId, onNeedAuth, onCreatePortfolio, onOpenHoldings, onOpenDividends, onSelectInstrument }: { auth: AuthResponse | null, portfolioId?: string, onNeedAuth: () => void, onCreatePortfolio: () => void, onOpenHoldings: () => void, onOpenDividends: () => void, onSelectInstrument: (symbol: string) => void }) {
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null)
   const [holdings, setHoldings] = useState<Holding[]>([])
-  const [realizedGain, setRealizedGain] = useState(0)
   const [annualIncome, setAnnualIncome] = useState(0)
+  const [cashBalance, setCashBalance] = useState(0)
+  const [cashSummary, setCashSummary] = useState<PortfolioPerformance | null>(null)
   const [loading, setLoading] = useState(Boolean(auth))
   const [error, setError] = useState('')
   const [selectedAllocation, setSelectedAllocation] = useState<string | null>(null)
   const [history, setHistory] = useState<PortfolioValuePoint[]>([])
   const [historyRange, setHistoryRange] = useState<HistoryRange>('1Y')
+  const [historyLoading, setHistoryLoading] = useState(false)
 
   useEffect(() => {
     if (!auth) return
@@ -40,19 +42,21 @@ function OverviewPage({ auth, portfolioId, onNeedAuth, onCreatePortfolio, onOpen
         getPortfolioPerformance(auth, selected.id, controller.signal),
         getDividendCalendar(auth, selected.id, dateKey(new Date(now.getFullYear(), now.getMonth(), 1)), dateKey(new Date(now.getFullYear(), now.getMonth() + 12, 0)), controller.signal),
       ])
-      setHoldings(holdingData); setRealizedGain(performance.realizedGain); setAnnualIncome(dividends.reduce((sum, event) => sum + event.projectedAmount, 0))
+      setHoldings(holdingData); setCashBalance(performance.cashBalance); setCashSummary(performance); setAnnualIncome(dividends.reduce((sum, event) => sum + event.projectedAmount, 0))
     }).catch((reason: unknown) => { if (!(reason instanceof DOMException && reason.name === 'AbortError')) setError(apiErrorMessage(reason, 'Unable to load the portfolio overview.')) })
       .finally(() => { if (!controller.signal.aborted) setLoading(false) })
     return () => controller.abort()
   }, [auth, portfolioId])
 
   useEffect(() => {
-    if (!auth || !portfolio) return
+    if (!auth || !portfolio) { setHistory([]); setHistoryLoading(false); return }
     const controller = new AbortController()
     const now = new Date()
+    setHistoryLoading(true)
     getPortfolioValueHistory(auth, portfolio.id, historyStart(historyRange), dateKey(now), controller.signal)
       .then(setHistory)
       .catch((reason: unknown) => { if (!(reason instanceof DOMException && reason.name === 'AbortError')) setHistory([]) })
+      .finally(() => { if (!controller.signal.aborted) setHistoryLoading(false) })
     return () => controller.abort()
   }, [auth, portfolio?.id, historyRange])
 
@@ -63,15 +67,14 @@ function OverviewPage({ auth, portfolioId, onNeedAuth, onCreatePortfolio, onOpen
     return [...grouped.entries()].map(([name, values]) => ({ name, ...values, percent: (totals.value || totals.invested) ? values.value / (totals.value || totals.invested) * 100 : 0 })).sort((a, b) => b.value - a.value)
   }, [holdings, totals.invested, totals.value])
   const gradient = allocations.length ? `conic-gradient(${allocations.map((_, index) => `${colors[index % colors.length]} ${allocations.slice(0, index).reduce((sum, value) => sum + value.percent, 0)}% ${allocations.slice(0, index + 1).reduce((sum, value) => sum + value.percent, 0)}%`).join(',')})` : '#dbe6f2'
-  const totalProfit = totals.unrealized + realizedGain
   const concentration = allocations[0]
 
   if (!auth) return <main className="mx-auto max-w-[900px] px-5 py-16"><section className="rounded-[24px] border border-[#c4d5e8] bg-white px-7 py-16 text-center"><h1 className="text-2xl font-semibold">Your portfolio overview</h1><p className="mt-2 text-sm text-[#536d86]">Sign in to see performance, passive income, and allocation insights.</p><button onClick={onNeedAuth} className="mt-6 rounded-xl bg-[#0b3b66] px-5 py-3 text-sm font-bold text-white">Sign in to continue</button></section></main>
   if (loading) return <main className="mx-auto max-w-[1560px] px-5 py-10 lg:px-8"><div className="h-[560px] animate-pulse rounded-[24px] bg-white" /></main>
 
   return <main className="mx-auto max-w-[1560px] px-5 py-8 lg:px-8 lg:py-11"><div className="mb-8"><p className="text-xs font-bold uppercase tracking-[.15em] text-[#506a84]">Portfolio overview</p><h1 className="mt-2 text-[36px] font-semibold tracking-[-.045em] md:text-[46px]">{portfolio?.name ?? 'Overview'}</h1><p className="mt-2 text-sm text-[#516c86]">Performance, income, and diversification in one place.</p></div>{error && <div className="mb-5 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</div>}{!portfolio ? <section className="rounded-[24px] border border-dashed border-[#b9cce0] bg-white px-6 py-16 text-center sm:px-10"><span className="mx-auto grid size-14 place-items-center rounded-2xl bg-[#e4effb] text-xl text-[#0b5b9e]">↗</span><h2 className="mt-5 text-2xl font-semibold tracking-[-.03em]">Create your first portfolio</h2><p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[#526b84]">Start with an account, broker, or investing goal. Then add your first transaction to see your holdings and performance.</p><button onClick={onCreatePortfolio} className="mt-6 rounded-xl bg-[#0b3b66] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#0b4f89]">Create a portfolio</button></section> : <>
-    <section className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><Metric label="Portfolio value" value={totals.quoted ? money(totals.value, portfolio.currency) : '—'} note={`${money(totals.invested, portfolio.currency)} invested`} color="bg-sky-100 text-sky-700">▣</Metric><Metric label="Total profit" value={money(totalProfit, portfolio.currency)} note={`${money(realizedGain, portfolio.currency)} realized`} positive={totalProfit >= 0} color="bg-emerald-100 text-emerald-700">↗</Metric><Metric label="Unrealized gain" value={totals.quoted ? money(totals.unrealized, portfolio.currency) : '—'} note={`${totals.quoted} of ${holdings.length} positions quoted`} positive={totals.unrealized >= 0} color="bg-violet-100 text-violet-700">⌁</Metric><button onClick={onOpenDividends} className="rounded-[20px] border border-[#c4d5e8] bg-white p-5 text-left transition hover:-translate-y-0.5 hover:shadow-lg"><p className="text-[10px] font-bold uppercase tracking-[.14em] text-[#5e7790]">Passive income</p><p className="mt-2 text-2xl font-semibold tracking-[-.035em]">{money(annualIncome, portfolio.currency)}</p><p className="mt-2 text-xs text-[#526b84]">Estimated over the next 12 months →</p></button></section>
-    <PerformanceChart history={history} range={historyRange} onRangeChange={setHistoryRange} currency={portfolio.currency} />
+    <section className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><Metric label="Investments" value={totals.quoted ? money(totals.value, portfolio.currency) : '—'} note={`${money(totals.invested, portfolio.currency)} cost basis`} color="bg-sky-100 text-sky-700">▣</Metric><CashBalanceCard value={cashBalance} summary={cashSummary} currency={portfolio.currency} /><Metric label="Unrealized gain" value={totals.quoted ? money(totals.unrealized, portfolio.currency) : '—'} note={`${totals.quoted} of ${holdings.length} positions quoted`} positive={totals.unrealized >= 0} color="bg-violet-100 text-violet-700">⌁</Metric><button onClick={onOpenDividends} className="rounded-[20px] border border-[#c4d5e8] bg-white p-5 text-left transition hover:-translate-y-0.5 hover:shadow-lg"><p className="text-[10px] font-bold uppercase tracking-[.14em] text-[#5e7790]">Passive income</p><p className="mt-2 text-2xl font-semibold tracking-[-.035em]">{money(annualIncome, portfolio.currency)}</p><p className="mt-2 text-xs text-[#526b84]">Estimated over the next 12 months →</p></button></section>
+    <PerformanceChart history={history} loading={historyLoading} range={historyRange} onRangeChange={setHistoryRange} currency={portfolio.currency} />
     {concentration && concentration.percent >= 40 && <section className="mb-5 flex flex-col justify-between gap-4 rounded-[20px] border border-amber-200 bg-amber-50 p-5 dark:border-amber-800/70 dark:bg-amber-950/55 sm:flex-row sm:items-center"><div><p className="text-[10px] font-bold uppercase tracking-[.13em] text-amber-700 dark:text-amber-300">Diversification insight</p><h2 className="mt-1 font-semibold text-amber-950 dark:text-amber-100">{concentration.name} represents {concentration.percent.toFixed(2)}% of this portfolio</h2><p className="mt-1 text-xs text-[#526b84] dark:text-amber-200/75">A concentrated allocation can make performance more sensitive to one part of the market.</p></div><button onClick={onOpenHoldings} className="shrink-0 rounded-xl bg-[#0b3b66] px-4 py-2.5 text-xs font-bold text-white transition hover:bg-[#0b4f89] dark:bg-amber-300 dark:text-amber-950 dark:hover:bg-amber-200">Review holdings</button></section>}
     <section className="grid gap-5 lg:grid-cols-[390px_minmax(0,1fr)]"><div className="rounded-[22px] border border-[#c4d5e8] bg-white p-6"><h2 className="font-semibold">Sector allocation</h2><div className="mx-auto mt-7 grid size-56 place-items-center rounded-full" style={{ background: gradient }}><div className="grid size-32 place-items-center rounded-full bg-white text-center"><div><strong className="block text-xl">{holdings.length}</strong><span className="text-[10px] text-[#526b84]">holdings</span></div></div></div></div><AllocationPanel allocations={allocations} holdings={holdings} selected={selectedAllocation} currency={portfolio.currency} onSelect={setSelectedAllocation} onSelectInstrument={onSelectInstrument} /></section>
   </>}</main>
@@ -79,7 +82,15 @@ function OverviewPage({ auth, portfolioId, onNeedAuth, onCreatePortfolio, onOpen
 
 function Metric({ label, value, note, positive, color, children }: { label: string, value: string, note: string, positive?: boolean, color: string, children: string }) { return <div className="rounded-[20px] border border-[#c4d5e8] bg-white p-5"><div className="flex items-center gap-2"><span className={`grid size-6 place-items-center rounded-lg text-xs ${color}`}>{children}</span><p className="text-[10px] font-bold uppercase tracking-[.14em] text-[#5e7790]">{label}</p></div><p className={`mt-3 text-2xl font-semibold tracking-[-.035em] ${positive === undefined ? '' : positive ? 'text-emerald-600' : 'text-rose-600'}`}>{value}</p><p className="mt-2 text-xs text-[#526b84]">{note}</p></div> }
 
-function PerformanceChart({ history, range, onRangeChange, currency }: { history: PortfolioValuePoint[], range: HistoryRange, onRangeChange: (range: HistoryRange) => void, currency: string }) {
+function CashBalanceCard({ value, summary, currency }: { value: number, summary: PortfolioPerformance | null, currency: string }) {
+  const rows = summary ? [
+    ['Deposits', summary.cashDeposits], ['Sale proceeds', summary.cashSaleProceeds], ['Dividends received', summary.cashDistributions],
+    ['Purchases', -summary.cashPurchases], ['Withdrawals', -summary.cashWithdrawals], ['Fees', -summary.cashFees],
+  ] : []
+  return <details className="group rounded-[20px] border border-[#c4d5e8] bg-white p-5"><summary className="cursor-pointer list-none"><div className="flex items-center gap-2"><span className="grid size-6 place-items-center rounded-lg bg-amber-100 text-xs text-amber-700">$</span><p className="text-[10px] font-bold uppercase tracking-[.14em] text-[#5e7790]">Cash balance</p><span className="ml-auto text-xs text-[#0b5b9e] group-open:hidden">Details</span><span className="ml-auto hidden text-xs text-[#0b5b9e] group-open:block">Hide</span></div><p className="mt-3 text-2xl font-semibold tracking-[-.035em]">{money(value, currency)}</p><p className="mt-2 text-xs text-[#526b84]">Available cash tracked from your ledger</p></summary><div className="mt-4 border-t border-[#dbe6f2] pt-3 text-xs"><p className="mb-2 font-semibold text-[#526b84]">Cash calculation</p>{rows.map(([label, amount]) => <div key={label} className="flex justify-between py-1"><span className="text-[#526b84]">{label}</span><span className={Number(amount) < 0 ? 'text-rose-600' : 'text-emerald-600'}>{Number(amount) < 0 ? '−' : '+'}{money(Math.abs(Number(amount)), currency)}</span></div>)}<div className="mt-2 flex justify-between border-t border-[#dbe6f2] pt-2 font-bold"><span>Current cash</span><span>{money(value, currency)}</span></div></div></details>
+}
+
+function PerformanceChart({ history, loading, range, onRangeChange, currency }: { history: PortfolioValuePoint[], loading: boolean, range: HistoryRange, onRangeChange: (range: HistoryRange) => void, currency: string }) {
   const first = history[0]?.marketValue ?? 0
   const last = history.at(-1)?.marketValue ?? 0
   const change = last - first
@@ -88,7 +99,7 @@ function PerformanceChart({ history, range, onRangeChange, currency }: { history
   const high = Math.max(...values, 1)
   const span = high - low || 1
   const path = history.map((point, index) => `${index ? 'L' : 'M'} ${(index / Math.max(history.length - 1, 1)) * 100} ${92 - ((point.marketValue - low) / span) * 82}`).join(' ')
-  return <section className="mb-5 overflow-hidden rounded-[22px] border border-[#c4d5e8] bg-white"><div className="flex flex-col gap-4 border-b border-[#dbe6f2] px-5 py-5 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="text-lg font-semibold tracking-[-.02em]">Portfolio performance</h2><p className={`mt-1 text-xs ${change >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{history.length > 1 ? `${change >= 0 ? '+' : ''}${money(change, currency)} over this period` : 'Daily price history appears after market data is synchronized.'}</p></div><div className="flex rounded-xl bg-[#edf4fb] p-1">{(['1W', '1M', '3M', '6M', '1Y', 'ALL'] as HistoryRange[]).map((item) => <button key={item} onClick={() => onRangeChange(item)} className={`rounded-lg px-2.5 py-1.5 text-xs font-bold transition ${range === item ? 'bg-white text-[#0b3b66] shadow-sm' : 'text-[#526b84] hover:text-[#0b3b66]'}`}>{item}</button>)}</div></div>{history.length > 1 ? <div className="px-5 pb-5 pt-4"><svg viewBox="0 0 100 100" preserveAspectRatio="none" className="h-52 w-full overflow-visible" role="img" aria-label={`Portfolio value changed by ${money(change, currency)}`}><path d="M0 92H100" stroke="#dbe6f2" strokeWidth=".6" vectorEffect="non-scaling-stroke" /><path d="M0 51H100" stroke="#edf4fb" strokeWidth=".6" vectorEffect="non-scaling-stroke" /><path d={path} fill="none" stroke={change >= 0 ? '#0b5b9e' : '#e05656'} strokeWidth="1.6" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" /></svg><div className="flex justify-between text-[10px] font-medium text-[#607991]"><span>{new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(new Date(`${history[0].date}T00:00:00`))}</span><span>{money(last, currency)}</span><span>{new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(new Date(`${history.at(-1)?.date}T00:00:00`))}</span></div></div> : <div className="px-5 py-14 text-center text-sm text-[#526b84]">No synchronized daily prices are available for this period.</div>}</section>
+  return <section className="mb-5 overflow-hidden rounded-[22px] border border-[#c4d5e8] bg-white"><div className="flex flex-col gap-4 border-b border-[#dbe6f2] px-5 py-5 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="text-lg font-semibold tracking-[-.02em]">Portfolio market value</h2><p className={`mt-1 text-xs ${change >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{history.length > 1 ? `${change >= 0 ? '+' : ''}${money(change, currency)} market-value change over this period` : 'Daily price history appears after market data is synchronized.'}</p></div><div className="flex rounded-xl bg-[#edf4fb] p-1">{(['1W', '1M', '3M', '6M', '1Y', 'ALL'] as HistoryRange[]).map((item) => <button key={item} onClick={() => onRangeChange(item)} disabled={loading} className={`rounded-lg px-2.5 py-1.5 text-xs font-bold transition disabled:cursor-wait ${range === item ? 'bg-white text-[#0b3b66] shadow-sm' : 'text-[#526b84] hover:text-[#0b3b66]'}`}>{item}</button>)}</div></div>{loading ? <div className="px-5 py-14"><div className="h-40 animate-pulse rounded-xl bg-[#edf4fb]" /><p className="mt-3 text-center text-xs text-[#607991]">Loading market-value history…</p></div> : history.length > 1 ? <div className="px-5 pb-5 pt-4"><svg viewBox="0 0 100 100" preserveAspectRatio="none" className="h-52 w-full overflow-visible" role="img" aria-label={`Portfolio market value changed by ${money(change, currency)}`}><path d="M0 92H100" stroke="#dbe6f2" strokeWidth=".6" vectorEffect="non-scaling-stroke" /><path d="M0 51H100" stroke="#edf4fb" strokeWidth=".6" vectorEffect="non-scaling-stroke" /><path d={path} fill="none" stroke={change >= 0 ? '#0b5b9e' : '#e05656'} strokeWidth="1.6" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" /></svg><div className="flex justify-between text-[10px] font-medium text-[#607991]"><span>{new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(new Date(`${history[0].date}T00:00:00`))}</span><span>{money(last, currency)}</span><span>{new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(new Date(`${history.at(-1)?.date}T00:00:00`))}</span></div></div> : <div className="px-5 py-14 text-center text-sm text-[#526b84]">No synchronized daily prices are available for this period.</div>}</section>
 }
 
 function AllocationPanel({ allocations, holdings, selected, currency, onSelect, onSelectInstrument }: { allocations: { name: string, value: number, invested: number, holdings: number, percent: number }[], holdings: Holding[], selected: string | null, currency: string, onSelect: (name: string | null) => void, onSelectInstrument: (symbol: string) => void }) {

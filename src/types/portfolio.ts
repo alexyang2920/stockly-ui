@@ -69,6 +69,12 @@ export type PortfolioPerformance = {
   realizedGain: number
   cashDistributions: number
   dividendIncome: number
+  cashBalance: number
+  cashDeposits: number
+  cashSaleProceeds: number
+  cashPurchases: number
+  cashWithdrawals: number
+  cashFees: number
   currency: string
 }
 

@@ -37,6 +37,15 @@ function shortDate(value: string) {
   return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(value))
 }
 
+function useDebouncedValue(value: string, delay = 300) {
+  const [debouncedValue, setDebouncedValue] = useState(value)
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedValue(value), delay)
+    return () => window.clearTimeout(timer)
+  }, [delay, value])
+  return debouncedValue
+}
+
 function SortableHoldingHeader({ label, sortKey, activeSort, onSort, className = 'px-4' }: { label: string, sortKey: HoldingSortKey, activeSort: { key: HoldingSortKey, direction: SortDirection }, onSort: (key: HoldingSortKey) => void, className?: string }) {
   const active = activeSort.key === sortKey
   const directionLabel = activeSort.direction === 'asc' ? 'ascending' : 'descending'
@@ -62,6 +71,8 @@ function PortfolioPage({ auth, section, requestedPortfolioId, onNeedAuth, onSele
   const [editing, setEditing] = useState<PortfolioTransaction | null>(null)
   const [showFidelityImport, setShowFidelityImport] = useState(false)
   const [holdingSort, setHoldingSort] = useState<{ key: HoldingSortKey, direction: SortDirection }>({ key: 'marketValue', direction: 'desc' })
+  const [holdingSearch, setHoldingSearch] = useState('')
+  const debouncedSymbolFilter = useDebouncedValue(symbolFilter)
 
   const selected = portfolios.find((portfolio) => portfolio.id === selectedId)
 
@@ -82,7 +93,7 @@ function PortfolioPage({ auth, section, requestedPortfolioId, onNeedAuth, onSele
     if (!auth || !selectedId) return Promise.resolve()
     return Promise.all([
       getHoldings(auth, selectedId, signal),
-      getTransactions(auth, selectedId, { symbol: symbolFilter.trim().toUpperCase(), type: typeFilter, from: fromFilter, to: toFilter, page, size: 20 }, signal),
+      getTransactions(auth, selectedId, { symbol: debouncedSymbolFilter.trim().toUpperCase(), type: typeFilter, from: fromFilter, to: toFilter, page, size: 20 }, signal),
     ]).then(([holdingData, transactionData]) => {
       setHoldings(holdingData)
       setTransactions(transactionData.content)
@@ -92,7 +103,7 @@ function PortfolioPage({ auth, section, requestedPortfolioId, onNeedAuth, onSele
       if (reason instanceof DOMException && reason.name === 'AbortError') return
       setError(apiErrorMessage(reason, 'Unable to load portfolio details.'))
     }).finally(() => { if (!signal?.aborted) setDetailsLoading(false) })
-  }, [auth, fromFilter, page, selectedId, symbolFilter, toFilter, typeFilter])
+  }, [auth, debouncedSymbolFilter, fromFilter, page, selectedId, toFilter, typeFilter])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -126,6 +137,12 @@ function PortfolioPage({ auth, section, requestedPortfolioId, onNeedAuth, onSele
       : leftValue - Number(rightValue)
     return (holdingSort.direction === 'asc' ? comparison : -comparison) || left.symbol.localeCompare(right.symbol)
   }), [holdings, holdingSort])
+
+  const visibleHoldings = useMemo(() => {
+    const query = holdingSearch.trim().toLowerCase()
+    if (!query) return sortedHoldings
+    return sortedHoldings.filter((holding) => holding.symbol.toLowerCase().includes(query) || holding.name.toLowerCase().includes(query))
+  }, [holdingSearch, sortedHoldings])
 
   const sortHoldings = (key: HoldingSortKey) => {
     setHoldingSort((current) => current.key === key
@@ -167,8 +184,8 @@ function PortfolioPage({ auth, section, requestedPortfolioId, onNeedAuth, onSele
       </section>
 
       <section className="mb-5 overflow-hidden rounded-[22px] border border-[#c4d5e8] bg-white">
-        <div className="border-b border-[#dbe6f2] px-5 py-5 md:px-6"><h2 className="text-lg font-semibold tracking-[-.02em]">Holdings</h2><p className="mt-1 text-xs text-[#526b84]">Latest server-synchronized prices · weighted-average cost</p></div>
-        {detailsLoading && !holdings.length ? <div className="h-44 animate-pulse bg-[#f4f8fd]" /> : holdings.length === 0 ? <EmptyState title="No open positions" text="Add a BUY transaction to begin building this portfolio." /> : <div className="overflow-x-auto"><table className="w-full min-w-[980px] text-left"><thead className="bg-[#f9fbff] text-[10px] font-bold uppercase tracking-[.12em] text-[#5d768f]"><tr><SortableHoldingHeader label="Instrument" sortKey="instrument" activeSort={holdingSort} onSort={sortHoldings} className="px-6" /><SortableHoldingHeader label="Quantity" sortKey="quantity" activeSort={holdingSort} onSort={sortHoldings} /><SortableHoldingHeader label="Average cost" sortKey="averageCost" activeSort={holdingSort} onSort={sortHoldings} /><SortableHoldingHeader label="Latest price" sortKey="marketPrice" activeSort={holdingSort} onSort={sortHoldings} /><SortableHoldingHeader label="Market value" sortKey="marketValue" activeSort={holdingSort} onSort={sortHoldings} /><SortableHoldingHeader label="Unrealized gain" sortKey="unrealizedGain" activeSort={holdingSort} onSort={sortHoldings} /><SortableHoldingHeader label="Realized gain" sortKey="realizedGain" activeSort={holdingSort} onSort={sortHoldings} className="px-6" /></tr></thead><tbody>{sortedHoldings.map((holding) => <tr key={holding.symbol} className="border-t border-[#ecefec] hover:bg-[#fafcff] dark:hover:bg-[#172b40]"><td className="px-6 py-4"><button onClick={() => onSelectInstrument(holding.symbol)} className="flex items-center gap-3 text-left"><InstrumentMark symbol={holding.symbol} size="small" /><span><strong className="block text-sm">{holding.symbol}</strong><span className="mt-0.5 block text-xs text-[#526b84]">{holding.name}</span></span></button></td><td className="px-4 py-4 text-right text-sm font-semibold tabular-nums">{quantity(holding.quantity)}</td><td className="px-4 py-4 text-right text-sm tabular-nums">{money(holding.averageCost, holding.currency)}</td><td className="px-4 py-4 text-right text-sm tabular-nums">{holding.marketPrice == null ? <span className="text-[#607991]">Not quoted</span> : <span>{money(holding.marketPrice, holding.currency)}<small className="mt-0.5 block text-[10px] text-[#607991]">Close · {holding.quoteDate}</small></span>}</td><td className="px-4 py-4 text-right text-sm font-semibold tabular-nums">{holding.marketValue == null ? '—' : money(holding.marketValue, holding.currency)}</td><td className={`px-4 py-4 text-right text-sm font-bold tabular-nums ${holding.unrealizedGain == null ? 'text-[#607991]' : holding.unrealizedGain >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{holding.unrealizedGain == null ? '—' : <span>{holding.unrealizedGain >= 0 ? '+' : ''}{money(holding.unrealizedGain, holding.currency)}<small className="mt-0.5 block text-[10px]">{holding.unrealizedGainPercent == null ? '' : `${holding.unrealizedGainPercent >= 0 ? '+' : ''}${holding.unrealizedGainPercent.toFixed(2)}%`}</small></span>}</td><td className={`px-6 py-4 text-right text-sm font-bold tabular-nums ${holding.realizedGain >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{holding.realizedGain >= 0 ? '+' : ''}{money(holding.realizedGain, holding.currency)}</td></tr>)}</tbody></table></div>}
+        <div className="flex flex-col gap-3 border-b border-[#dbe6f2] px-5 py-5 sm:flex-row sm:items-center sm:justify-between md:px-6"><div><h2 className="text-lg font-semibold tracking-[-.02em]">Holdings</h2><p className="mt-1 text-xs text-[#526b84]">Latest server-synchronized prices · weighted-average cost</p></div><input value={holdingSearch} onChange={(event) => setHoldingSearch(event.target.value)} className="rounded-xl border border-[#c4d5e8] bg-[#f9fbff] px-3 py-2.5 text-sm outline-none focus:border-[#3077b4]" placeholder="Search holdings" aria-label="Search holdings by symbol or company" /></div>
+        {detailsLoading && !holdings.length ? <div className="h-44 animate-pulse bg-[#f4f8fd]" /> : holdings.length === 0 ? <EmptyState title="No open positions" text="Add a BUY transaction to begin building this portfolio." /> : visibleHoldings.length === 0 ? <EmptyState title="No matching holdings" text="Try a different ticker or company name." /> : <div className="overflow-x-auto"><table className="w-full min-w-[980px] text-left"><thead className="bg-[#f9fbff] text-[10px] font-bold uppercase tracking-[.12em] text-[#5d768f]"><tr><SortableHoldingHeader label="Instrument" sortKey="instrument" activeSort={holdingSort} onSort={sortHoldings} className="px-6" /><SortableHoldingHeader label="Quantity" sortKey="quantity" activeSort={holdingSort} onSort={sortHoldings} /><SortableHoldingHeader label="Average cost" sortKey="averageCost" activeSort={holdingSort} onSort={sortHoldings} /><SortableHoldingHeader label="Latest price" sortKey="marketPrice" activeSort={holdingSort} onSort={sortHoldings} /><SortableHoldingHeader label="Market value" sortKey="marketValue" activeSort={holdingSort} onSort={sortHoldings} /><SortableHoldingHeader label="Unrealized gain" sortKey="unrealizedGain" activeSort={holdingSort} onSort={sortHoldings} /><SortableHoldingHeader label="Realized gain" sortKey="realizedGain" activeSort={holdingSort} onSort={sortHoldings} className="px-6" /></tr></thead><tbody>{visibleHoldings.map((holding) => <tr key={holding.symbol} className="border-t border-[#ecefec] hover:bg-[#fafcff] dark:hover:bg-[#172b40]"><td className="px-6 py-4"><button onClick={() => onSelectInstrument(holding.symbol)} className="flex items-center gap-3 text-left"><InstrumentMark symbol={holding.symbol} size="small" /><span><strong className="block text-sm">{holding.symbol}</strong><span className="mt-0.5 block text-xs text-[#526b84]">{holding.name}</span></span></button></td><td className="px-4 py-4 text-right text-sm font-semibold tabular-nums">{quantity(holding.quantity)}</td><td className="px-4 py-4 text-right text-sm tabular-nums">{money(holding.averageCost, holding.currency)}</td><td className="px-4 py-4 text-right text-sm tabular-nums">{holding.marketPrice == null ? <span className="text-[#607991]">Not quoted</span> : <span>{money(holding.marketPrice, holding.currency)}<small className="mt-0.5 block text-[10px] text-[#607991]">Close · {holding.quoteDate}</small></span>}</td><td className="px-4 py-4 text-right text-sm font-semibold tabular-nums">{holding.marketValue == null ? '—' : money(holding.marketValue, holding.currency)}</td><td className={`px-4 py-4 text-right text-sm font-bold tabular-nums ${holding.unrealizedGain == null ? 'text-[#607991]' : holding.unrealizedGain >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{holding.unrealizedGain == null ? '—' : <span>{holding.unrealizedGain >= 0 ? '+' : ''}{money(holding.unrealizedGain, holding.currency)}<small className="mt-0.5 block text-[10px]">{holding.unrealizedGainPercent == null ? '' : `${holding.unrealizedGainPercent >= 0 ? '+' : ''}${holding.unrealizedGainPercent.toFixed(2)}%`}</small></span>}</td><td className={`px-6 py-4 text-right text-sm font-bold tabular-nums ${holding.realizedGain >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{holding.realizedGain >= 0 ? '+' : ''}{money(holding.realizedGain, holding.currency)}</td></tr>)}</tbody></table></div>}
       </section>
       </>}
 
