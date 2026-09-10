@@ -1,6 +1,7 @@
 import type { AuthResponse } from '../types/auth'
 import type { CreatePortfolioInput, DividendCalendarEvent, FidelityImportResult, Holding, Page, Portfolio, PortfolioPerformance, PortfolioTransaction, PortfolioValuePoint, TransactionInput, TransactionType } from '../types/portfolio'
 import { apiRequest } from './client'
+import { endOfLocalDate, startOfLocalDate } from '../utils/date'
 
 export function getPortfolios(auth: AuthResponse, signal?: AbortSignal) {
   return apiRequest<Portfolio[]>('/portfolios', { auth, signal })
@@ -40,8 +41,8 @@ export function getTransactions(auth: AuthResponse, portfolioId: string, filters
   const params = new URLSearchParams({ page: String(filters.page ?? 0), size: String(filters.size ?? 50) })
   if (filters.symbol) params.set('symbol', filters.symbol)
   if (filters.type) params.set('type', filters.type)
-  if (filters.from) params.set('from', `${filters.from}T00:00:00.000Z`)
-  if (filters.to) params.set('to', `${filters.to}T23:59:59.999Z`)
+  if (filters.from) params.set('from', startOfLocalDate(filters.from))
+  if (filters.to) params.set('to', endOfLocalDate(filters.to))
   return apiRequest<Page<PortfolioTransaction>>(`/portfolios/${portfolioId}/transactions?${params}`, { auth, signal })
 }
 

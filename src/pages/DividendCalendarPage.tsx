@@ -3,6 +3,7 @@ import { apiErrorMessage } from '../api/client'
 import { getDividendCalendar, getHoldings, getPortfolios } from '../api/portfolios'
 import { getInstrument, getQuote } from '../api/instruments'
 import InstrumentMark from '../components/InstrumentMark'
+import { formatMarketDate, marketDateDay } from '../utils/date'
 import type { AuthResponse } from '../types/auth'
 import type { DividendCalendarEvent, Holding, Portfolio } from '../types/portfolio'
 import type { Instrument, InstrumentQuote } from '../types/instrument'
@@ -16,9 +17,8 @@ type Props = {
 
 const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const dateKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-const localDate = (value: string) => new Date(`${value}T00:00:00`)
 const money = (value: number, currency = 'USD') => new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 2 }).format(value)
-const shortDate = (value: string) => new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(localDate(value))
+const shortDate = (value: string) => formatMarketDate(value, { month: 'short', day: 'numeric' })
 
 function DividendCalendarPage({ auth, requestedPortfolioId, onNeedAuth, onSelectInstrument }: Props) {
   const [month, setMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1))
@@ -58,8 +58,8 @@ function DividendCalendarPage({ auth, requestedPortfolioId, onNeedAuth, onSelect
   }, [auth, selectedId, forecastStart, forecastEnd])
 
   const monthEvents = useMemo(() => events.filter((event) => {
-    const eventDate = localDate(event.calendarDate)
-    return eventDate.getFullYear() === month.getFullYear() && eventDate.getMonth() === month.getMonth()
+    return Number(event.calendarDate.slice(0, 4)) === month.getFullYear()
+      && Number(event.calendarDate.slice(5, 7)) === month.getMonth() + 1
   }), [events, month])
   const eventsByDate = useMemo(() => monthEvents.reduce((grouped, event) => {
     grouped.set(event.calendarDate, [...(grouped.get(event.calendarDate) ?? []), event])
@@ -76,8 +76,8 @@ function DividendCalendarPage({ auth, requestedPortfolioId, onNeedAuth, onSelect
   const marketValue = holdings.reduce((sum, holding) => sum + (holding.marketValue ?? 0), 0)
   const forecastMonths = Array.from({ length: 12 }, (_, index) => new Date(now.getFullYear(), now.getMonth() + index, 1))
   const monthlyBreakdown = forecastMonths.map((forecastMonth) => events.filter((event) => {
-    const eventDate = localDate(event.calendarDate)
-    return eventDate.getFullYear() === forecastMonth.getFullYear() && eventDate.getMonth() === forecastMonth.getMonth()
+    return Number(event.calendarDate.slice(0, 4)) === forecastMonth.getFullYear()
+      && Number(event.calendarDate.slice(5, 7)) === forecastMonth.getMonth() + 1
   }).reduce((amounts, event) => {
     const bucket = event.estimated ? 'estimated' : 'scheduled'
     amounts[bucket] += event.projectedAmount
@@ -91,7 +91,7 @@ function DividendCalendarPage({ auth, requestedPortfolioId, onNeedAuth, onSelect
 
   return <main className="mx-auto max-w-[1560px] px-5 py-8 lg:px-8 lg:py-11">
     <div className="mb-8 flex flex-col justify-between gap-5 md:flex-row md:items-end">
-      <div><p className="text-xs font-bold uppercase tracking-[.15em] text-[#506a84]">Income planning</p><h1 className="mt-2 text-[36px] font-semibold tracking-[-.045em] md:text-[46px]">Dividend calendar</h1><p className="mt-2 text-sm text-[#516c86]">Distributions calculated from the shares you owned before each ex-dividend date.</p></div>
+      <div><p className="text-xs font-bold uppercase tracking-[.15em] text-[#506a84]">Income planning</p><h1 className="mt-2 text-[36px] font-semibold tracking-[-.045em] md:text-[46px]">Dividend calendar</h1><p className="mt-2 text-sm text-[#516c86]">Distributions calculated from the shares you owned before each ex-dividend date. Market dates follow U.S. Eastern Time.</p></div>
       <button onClick={() => setMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1))} className="self-start rounded-xl border border-[#c4d5e8] bg-white px-4 py-2.5 text-sm font-bold shadow-sm">Today</button>
     </div>
     {error && <div role="alert" className="mb-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>}
@@ -149,7 +149,7 @@ function IncomeReliability({ events, total, currency }: { events: DividendCalend
 function ReliabilityMetric({ label, value, detail, tone }: { label: string, value: string, detail: string, tone: 'good' | 'attention' | 'neutral' }) { const color = tone === 'attention' ? 'text-amber-700' : tone === 'good' ? 'text-[#0b5b9e]' : 'text-[#506981]'; return <div className="rounded-xl border border-[#dbe6f2] bg-[#f9fbff] p-4"><p className="text-[10px] font-bold uppercase tracking-[.12em] text-[#607991]">{label}</p><p className={`mt-2 text-xl font-semibold tracking-[-.02em] ${color}`}>{value}</p><p className="mt-1 text-xs leading-5 text-[#526b84]">{detail}</p></div> }
 
 function EventRow({ event, onSelect }: { event: DividendCalendarEvent, onSelect: () => void }) {
-  return <button onClick={onSelect} className="flex w-full items-center gap-3 px-4 py-4 text-left"><div className="w-11 text-center"><strong className="block text-lg">{localDate(event.calendarDate).getDate()}</strong><span className="text-[10px] uppercase text-[#526b84]">{new Intl.DateTimeFormat('en-US', { weekday: 'short' }).format(localDate(event.calendarDate))}</span></div><InstrumentMark symbol={event.symbol} size="small" /><div className="min-w-0 flex-1"><strong className="text-sm">{event.symbol}</strong><span className="ml-2 text-[10px] font-bold uppercase text-[#526b84]">{event.estimated ? 'Estimated' : event.dateType === 'PAY_DATE' ? 'Pay date' : 'Ex-date'}</span><p className="truncate text-xs text-[#526b84]">{event.name} · Ex {shortDate(event.exDividendDate)}</p></div><div className="text-right"><strong className="block text-sm">{money(event.projectedAmount, event.currency)}</strong><span className="text-[10px] text-[#526b84]">{event.quantity} × {money(event.amountPerShare, event.currency)}</span></div></button>
+  return <button onClick={onSelect} className="flex w-full items-center gap-3 px-4 py-4 text-left"><div className="w-11 text-center"><strong className="block text-lg">{marketDateDay(event.calendarDate)}</strong><span className="text-[10px] uppercase text-[#526b84]">{formatMarketDate(event.calendarDate, { weekday: 'short' })}</span></div><InstrumentMark symbol={event.symbol} size="small" /><div className="min-w-0 flex-1"><strong className="text-sm">{event.symbol}</strong><span className="ml-2 text-[10px] font-bold uppercase text-[#526b84]">{event.estimated ? 'Estimated' : event.dateType === 'PAY_DATE' ? 'Pay date' : 'Ex-date'}</span><p className="truncate text-xs text-[#526b84]">{event.name} · Ex {shortDate(event.exDividendDate)}</p></div><div className="text-right"><strong className="block text-sm">{money(event.projectedAmount, event.currency)}</strong><span className="text-[10px] text-[#526b84]">{event.quantity} × {money(event.amountPerShare, event.currency)}</span></div></button>
 }
 
 function EmptyMonth() { return <div className="px-6 py-16 text-center"><div className="mx-auto grid size-12 place-items-center rounded-2xl bg-[#e8f1fb] text-xl">◫</div><h3 className="mt-4 font-semibold">No dividends this month</h3><p className="mt-1 text-sm text-[#526b84]">Try another month or synchronize the latest dividend data.</p></div> }

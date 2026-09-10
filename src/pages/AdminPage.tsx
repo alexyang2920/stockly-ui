@@ -5,6 +5,7 @@ import { searchInstruments, syncFinancials } from '../api/instruments'
 import type { MarketDataDatasetStatus } from '../types/admin'
 import type { AuthResponse } from '../types/auth'
 import type { Instrument } from '../types/instrument'
+import { localDateKey } from '../utils/date'
 
 const datasetCopy = {
   QUOTES: ['Daily quotes', 'One grouped Massive request for all U.S. instruments'],
@@ -14,13 +15,13 @@ const datasetCopy = {
 
 function localDate(daysAgo = 0) {
   const date = new Date(); date.setDate(date.getDate() - daysAgo)
-  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
+  return localDateKey(date)
 }
 
 function previousWeekday() {
   const date = new Date()
   do { date.setDate(date.getDate() - 1) } while (date.getDay() === 0 || date.getDay() === 6)
-  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
+  return localDateKey(date)
 }
 
 function AdminPage({ auth, onNeedAuth }: { auth: AuthResponse | null, onNeedAuth: () => void }) {

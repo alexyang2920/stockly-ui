@@ -3,6 +3,7 @@ import { apiErrorMessage } from '../api/client'
 import { searchInstruments } from '../api/instruments'
 import { createTransaction, deleteTransaction, getHoldings, getPortfolios, getTransactions, importFidelityActivity, updateTransaction } from '../api/portfolios'
 import InstrumentMark from '../components/InstrumentMark'
+import { formatLocalDateTime, toLocalDateTimeInput } from '../utils/date'
 import type { AuthResponse } from '../types/auth'
 import type { Instrument } from '../types/instrument'
 import type { FidelityImportResult, Holding, Portfolio, PortfolioTransaction, TransactionInput, TransactionType } from '../types/portfolio'
@@ -33,9 +34,7 @@ function quantity(value: number) {
   return new Intl.NumberFormat('en-US', { maximumFractionDigits: 8 }).format(value)
 }
 
-function shortDate(value: string) {
-  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(value))
-}
+const shortDate = formatLocalDateTime
 
 function useDebouncedValue(value: string, delay = 300) {
   const [debouncedValue, setDebouncedValue] = useState(value)
@@ -261,7 +260,7 @@ function TransactionModal({ auth, portfolio, transaction, onClose, onSaved }: { 
   const [returnOfCapitalAmount, setReturnOfCapitalAmount] = useState(transaction?.returnOfCapitalAmount?.toString() ?? '0')
   const [executedAt, setExecutedAt] = useState(() => {
     const date = transaction ? new Date(transaction.executedAt) : new Date()
-    return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+    return toLocalDateTimeInput(date)
   })
   const [notes, setNotes] = useState(transaction?.notes ?? '')
   const [saving, setSaving] = useState(false)

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { apiErrorMessage } from '../api/client'
 import { getDividends, getFinancials, getInstrument, getQuote, getQuoteHistory, getSplits, type FinancialPeriod } from '../api/instruments'
 import InstrumentMark from '../components/InstrumentMark'
+import { formatMarketDate, localDateKey } from '../utils/date'
 import type { DailyQuote, DividendEvent, FinancialFact, Instrument, InstrumentQuote, StockSplitEvent } from '../types/instrument'
 
 type Period = FinancialPeriod
@@ -106,7 +107,7 @@ function InstrumentPage({ symbol }: InstrumentPageProps) {
     if (priceRange === '1Y') fromDate.setFullYear(fromDate.getFullYear() - 1)
     if (priceRange === '5Y') fromDate.setFullYear(fromDate.getFullYear() - 5)
     if (priceRange === '20Y') fromDate.setFullYear(fromDate.getFullYear() - 20)
-    const isoDate = (value: Date) => value.toISOString().slice(0, 10)
+    const isoDate = localDateKey
     Promise.resolve().then(() => {
       if (!controller.signal.aborted) {
         setPriceHistoryLoading(true)
@@ -213,10 +214,9 @@ function InstrumentPage({ symbol }: InstrumentPageProps) {
     const totals = new Map<string, { year: number, quarter?: number, month?: number, amount: number }>()
     dividends.forEach((event) => {
       if (event.exDividendDate > todayKey) return
-      const date = new Date(`${event.exDividendDate}T00:00:00`)
-      const year = date.getFullYear()
-      const month = date.getMonth() + 1
-      const quarter = Math.floor(date.getMonth() / 3) + 1
+      const year = Number(event.exDividendDate.slice(0, 4))
+      const month = Number(event.exDividendDate.slice(5, 7))
+      const quarter = Math.floor((month - 1) / 3) + 1
       const key = effectiveDividendPeriod === 'ANNUAL' ? String(year) : effectiveDividendPeriod === 'MONTHLY' ? `${year}-${month}` : `${year}-Q${quarter}`
       const current = totals.get(key) ?? { year, quarter: effectiveDividendPeriod === 'QUARTERLY' ? quarter : undefined, month: effectiveDividendPeriod === 'MONTHLY' ? month : undefined, amount: 0 }
       current.amount += event.splitAdjustedCashAmount ?? event.cashAmount
@@ -278,14 +278,14 @@ function InstrumentPage({ symbol }: InstrumentPageProps) {
         <div className="flex items-center gap-4"><InstrumentMark symbol={instrument.symbol} size="large" /><div><div className="flex flex-wrap items-center gap-2"><h1 className="text-[32px] font-semibold tracking-[-.04em]">{instrument.symbol}</h1><span className="rounded-md bg-[#e6f0fb] px-2 py-1 text-[10px] font-bold text-[#4a657f]">{instrument.instrumentType}</span></div><p className="mt-1 text-[#67736c]">{instrument.name}</p></div></div>
       </div>
       <div className="mt-7">
-        {marketLoading ? <div className="h-[74px] animate-pulse rounded-xl bg-[#f4f8fd]" aria-label="Loading daily quote" /> : quote ? <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6"><QuoteDetail label="Close" value={formatMoney(quote.price, quote.currency)} emphasis /><QuoteDetail label="Open" value={formatOptionalMoney(quote.open, quote.currency)} /><QuoteDetail label="High" value={formatOptionalMoney(quote.high, quote.currency)} /><QuoteDetail label="Low" value={formatOptionalMoney(quote.low, quote.currency)} /><QuoteDetail label="Volume" value={quote.volume == null ? '—' : new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 2 }).format(quote.volume)} /><QuoteDetail label="Market date" value={quote.marketDate} /></div> : <div className="rounded-xl bg-[#f4f8fd] px-4 py-3"><p className="text-sm font-semibold">No daily quote synchronized</p><p className="mt-1 text-xs text-[#556c84]">The latest end-of-day market data is not available yet.</p></div>}
+        {marketLoading ? <div className="h-[74px] animate-pulse rounded-xl bg-[#f4f8fd]" aria-label="Loading daily quote" /> : quote ? <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6"><QuoteDetail label="Close" value={formatMoney(quote.price, quote.currency)} emphasis /><QuoteDetail label="Open" value={formatOptionalMoney(quote.open, quote.currency)} /><QuoteDetail label="High" value={formatOptionalMoney(quote.high, quote.currency)} /><QuoteDetail label="Low" value={formatOptionalMoney(quote.low, quote.currency)} /><QuoteDetail label="Volume" value={quote.volume == null ? '—' : new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 2 }).format(quote.volume)} /><QuoteDetail label="Market date (ET)" value={quote.marketDate} /></div> : <div className="rounded-xl bg-[#f4f8fd] px-4 py-3"><p className="text-sm font-semibold">No daily quote synchronized</p><p className="mt-1 text-xs text-[#556c84]">The latest end-of-day market data is not available yet.</p></div>}
       </div>
       <div className="mt-7 grid gap-3 border-t border-[#e8f0fa] pt-6 sm:grid-cols-3"><Detail label="Exchange" value={instrument.exchange} /><Detail label="Sector" value={instrument.instrumentType === 'ETF' ? 'Funds' : instrument.sector || 'Not classified'} /><Detail label="SEC CIK" value={instrument.cik || 'Not available'} /></div>
     </section>
 
     <section className="mt-6 overflow-hidden rounded-[22px] border border-[#c4d5e8] bg-white">
       <div className="flex flex-col justify-between gap-4 border-b border-[#dbe6f2] p-5 sm:flex-row sm:items-center md:px-7">
-        <div><h2 className="text-xl font-semibold tracking-[-.025em]">Price history</h2><p className="mt-1 text-sm text-[#556c84]">Daily closing price · {priceHistory[0]?.currency ?? quote?.currency ?? 'USD'}</p></div>
+        <div><h2 className="text-xl font-semibold tracking-[-.025em]">Price history</h2><p className="mt-1 text-sm text-[#556c84]">Daily closing price · U.S. market dates (ET) · {priceHistory[0]?.currency ?? quote?.currency ?? 'USD'}</p></div>
         <Segmented values={['1M', '3M', '1Y', '5Y', '20Y']} active={priceRange} onChange={(value) => setPriceRange(value as PriceRange)} />
       </div>
       {priceHistoryLoading ? <div className="h-80 animate-pulse bg-[#f4f8fd]" aria-label="Loading price history" /> : priceHistoryError ? <div className="px-6 py-12 text-center"><p className="font-semibold">Unable to load price history</p><p className="mt-1 text-sm text-rose-600">{priceHistoryError}</p></div> : priceHistory.length > 1 ? <PriceHistoryChart data={priceHistory} /> : <div className="px-6 py-12 text-center"><p className="font-semibold">No price history found</p><p className="mt-1 text-sm text-[#556c84]">Import daily quotes for this instrument to display its chart.</p></div>}
@@ -296,7 +296,7 @@ function InstrumentPage({ symbol }: InstrumentPageProps) {
       </nav>
 
     {activeTab === 'dividends' && <section className="overflow-hidden rounded-[22px] border border-[#c4d5e8] bg-white">
-      <div className="flex flex-col justify-between gap-4 border-b border-[#dbe6f2] p-5 sm:flex-row sm:items-center md:px-7"><div><h2 className="text-xl font-semibold tracking-[-.025em]">Dividend history</h2><p className="mt-1 text-sm text-[#556c84]">Latest 15 calendar years · split-adjusted distributions</p></div><Segmented values={['ANNUAL', paysMonthlyDividends ? 'MONTHLY' : 'QUARTERLY']} active={effectiveDividendPeriod} onChange={(value) => setDividendPeriod(value as DividendPeriod)} /></div>
+      <div className="flex flex-col justify-between gap-4 border-b border-[#dbe6f2] p-5 sm:flex-row sm:items-center md:px-7"><div><h2 className="text-xl font-semibold tracking-[-.025em]">Dividend history</h2><p className="mt-1 text-sm text-[#556c84]">Latest 15 calendar years · split-adjusted distributions · U.S. market dates (ET)</p></div><Segmented values={['ANNUAL', paysMonthlyDividends ? 'MONTHLY' : 'QUARTERLY']} active={effectiveDividendPeriod} onChange={(value) => setDividendPeriod(value as DividendPeriod)} /></div>
       {marketLoading ? <div className="h-72 animate-pulse bg-[#f4f8fd]" /> : displayedDividends.length ? <><DividendHistoryChart data={dividendChartData} currency={displayedDividends[0]?.currency ?? 'USD'} period={effectiveDividendPeriod} /><div className="overflow-x-auto border-t border-[#dbe6f2]"><table className="w-full min-w-[760px] text-left"><thead className="bg-[#f9fbff] text-[10px] font-bold uppercase tracking-[.12em] text-[#5d768f]"><tr><th className="px-6 py-3">Ex-dividend</th><th className="px-4 py-3">Pay date</th><th className="px-4 py-3">Type</th><th className="px-4 py-3">Frequency</th><th className="px-4 py-3 text-right">Reported</th><th className="px-6 py-3 text-right">Split-adjusted</th></tr></thead><tbody>{displayedDividends.map((event) => <tr key={`${event.exDividendDate}-${event.cashAmount}`} className="border-t border-[#ecefec] hover:bg-[#fafcff] dark:hover:bg-[#172b40]"><td className="px-6 py-4 text-sm font-semibold">{event.exDividendDate}</td><td className="px-4 py-4 text-sm text-[#506981]">{event.payDate ?? '—'}</td><td className="px-4 py-4 text-sm">{event.dividendType ? humanize(event.dividendType.toLowerCase()) : 'Cash'}</td><td className="px-4 py-4 text-sm text-[#506981]">{frequencyLabel(event.frequency)}</td><td className="px-4 py-4 text-right text-sm tabular-nums text-[#506981]">{formatMoney(event.cashAmount, event.currency)}</td><td className="px-6 py-4 text-right text-sm font-bold tabular-nums">{formatMoney(event.splitAdjustedCashAmount ?? event.cashAmount, event.currency)}</td></tr>)}</tbody></table></div></> : <div className="px-6 py-10 text-center"><p className="font-semibold">No dividend events found</p><p className="mt-1 text-sm text-[#556c84]">This instrument may not pay a dividend, or its history has not been synchronized.</p></div>}
     </section>}
 
@@ -341,7 +341,7 @@ function PriceHistoryChart({ data }: { data: DailyQuote[] }) {
   const last = data[data.length - 1].close
   const change = (last - first) / first * 100
   const formatPrice = (value: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 2 }).format(value)
-  const dateLabel = (value: string) => new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${value}T00:00:00Z`))
+  const dateLabel = formatMarketDate
   const selected = hoveredIndex == null ? null : data[hoveredIndex]
 
   return <div className="p-4 sm:p-6">
