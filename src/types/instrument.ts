@@ -3,6 +3,7 @@ export type Instrument = {
   name: string
   exchange: string
   instrumentType: 'STOCK' | 'ETF'
+  active?: boolean
   sector?: string | null
   industry?: string | null
   sicCode?: string | null

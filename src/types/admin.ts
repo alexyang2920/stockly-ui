@@ -41,4 +41,5 @@ export type InstrumentCatalogSyncResult = {
   updated: number
   unchanged: number
   skipped: number
+  deactivated: number
 }
