@@ -201,23 +201,23 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#edf4fc] text-[#0d243d]">
+    <div className="min-h-screen bg-white text-[#0d243d]">
       <header className="sticky top-0 z-40 border-b border-[#c4d5e8] bg-[#f4f8fd]/95 backdrop-blur-xl">
         <div className="mx-auto flex h-[72px] max-w-[1560px] items-center gap-5 px-5 md:gap-3 lg:px-8 xl:gap-5">
           <button className="flex items-center gap-2.5" onClick={() => navigate({ view: 'home' })} aria-label="Stockly home">
             <img src="/favicon.svg" alt="" className="size-9 rounded-xl shadow-[0_7px_18px_rgba(23,60,44,.18)]" />
-            <span className="hidden text-lg font-bold tracking-[-.035em] text-[#0b3b66] sm:block">Stockly</span>
+            <span className="brand-wordmark hidden text-lg font-bold tracking-[-.035em] text-[#0b3b66] sm:block">Stockly</span>
           </button>
 
           <nav className="hidden items-center gap-1 xl:flex" aria-label="Main navigation">
-            <button onClick={() => selectNav('Overview')} className={`rounded-lg px-3.5 py-2 text-sm font-medium transition ${route.view === 'home' ? 'bg-[#e2edfa] text-[#0b3b66] dark:text-[#bddcff]' : 'text-[#49647f] hover:bg-white hover:text-[#0d243d]'}`}>Overview</button>
-            {(['Holdings', 'Transactions', 'Dividends'] as const).map((item) => <button key={item} onClick={() => selectNav(item)} className={`rounded-lg px-3.5 py-2 text-sm font-medium transition ${(item === 'Dividends' ? route.view === 'dividends' : route.view === 'portfolio' && route.section === item.toLowerCase()) ? 'bg-[#e2edfa] text-[#0b3b66] dark:text-[#bddcff]' : 'text-[#49647f] hover:bg-white hover:text-[#0d243d]'}`}>{item}</button>)}
+            <button onClick={() => selectNav('Overview')} className={`rounded-lg px-3.5 py-2 text-sm font-semibold transition ${route.view === 'home' ? 'bg-[#e2edfa] text-[#0b3b66] dark:text-[#bddcff]' : 'text-[#294864] hover:bg-white hover:text-[#0d243d] dark:text-[#c7d8e9] dark:hover:bg-[#22364e] dark:hover:text-white'}`}>Overview</button>
+            {(['Holdings', 'Transactions', 'Dividends'] as const).map((item) => <button key={item} onClick={() => selectNav(item)} className={`rounded-lg px-3.5 py-2 text-sm font-semibold transition ${(item === 'Dividends' ? route.view === 'dividends' : route.view === 'portfolio' && route.section === item.toLowerCase()) ? 'bg-[#e2edfa] text-[#0b3b66] dark:text-[#bddcff]' : 'text-[#294864] hover:bg-white hover:text-[#0d243d] dark:text-[#c7d8e9] dark:hover:bg-[#22364e] dark:hover:text-white'}`}>{item}</button>)}
           </nav>
 
           <nav className="hidden items-center gap-1 md:flex xl:hidden" aria-label="Main navigation">
-            <button onClick={() => selectNav('Overview')} className={`rounded-lg px-3.5 py-2 text-sm font-medium transition ${route.view === 'home' ? 'bg-[#e2edfa] text-[#0b3b66] dark:text-[#bddcff]' : 'text-[#49647f] hover:bg-white hover:text-[#0d243d]'}`}>Overview</button>
+            <button onClick={() => selectNav('Overview')} className={`rounded-lg px-3.5 py-2 text-sm font-semibold transition ${route.view === 'home' ? 'bg-[#e2edfa] text-[#0b3b66] dark:text-[#bddcff]' : 'text-[#294864] hover:bg-white hover:text-[#0d243d] dark:text-[#c7d8e9] dark:hover:bg-[#22364e] dark:hover:text-white'}`}>Overview</button>
             <div className="group relative">
-              <button onClick={() => selectNav('Holdings')} className={`flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-medium transition ${route.view === 'portfolio' || route.view === 'dividends' ? 'bg-[#e2edfa] text-[#0b3b66] dark:text-[#bddcff]' : 'text-[#49647f] hover:bg-white hover:text-[#0d243d]'}`} aria-haspopup="menu"><span>Portfolio</span><svg className="size-3.5 transition group-hover:rotate-180 group-focus-within:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6" /></svg></button>
+              <button onClick={() => selectNav('Holdings')} className={`flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-semibold transition ${route.view === 'portfolio' || route.view === 'dividends' ? 'bg-[#e2edfa] text-[#0b3b66] dark:text-[#bddcff]' : 'text-[#294864] hover:bg-white hover:text-[#0d243d] dark:text-[#c7d8e9] dark:hover:bg-[#22364e] dark:hover:text-white'}`} aria-haspopup="menu"><span>Portfolio</span><svg className="size-3.5 transition group-hover:rotate-180 group-focus-within:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6" /></svg></button>
               <div className="invisible absolute left-0 top-full z-50 pt-2 opacity-0 transition group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100"><div role="menu" className="w-52 rounded-2xl border border-[#c3d5e8] bg-white p-1.5 shadow-[0_16px_45px_rgba(20,38,29,.18)] dark:border-[#304258] dark:bg-[#16283b]">{(['Holdings', 'Transactions', 'Dividends'] as const).map((item) => <button key={item} role="menuitem" onClick={() => selectNav(item)} className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold ${(item === 'Dividends' ? route.view === 'dividends' : route.view === 'portfolio' && route.section === item.toLowerCase()) ? 'bg-[#e8f1fb] text-[#0b5b9e] dark:bg-[#22364e] dark:text-[#bddcff]' : 'text-[#49647f] hover:bg-[#f4f8fd] dark:hover:bg-[#1d3045]'}`}><span className="grid size-7 place-items-center rounded-lg bg-[#e8f1fb] text-[#0b5b9e] dark:bg-[#22364e] dark:text-[#8bc5f5]"><Icon name={item === 'Holdings' ? 'briefcase' : item === 'Dividends' ? 'grid' : 'activity'} className="size-3.5" /></span>{item}</button>)}</div></div>
             </div>
           </nav>

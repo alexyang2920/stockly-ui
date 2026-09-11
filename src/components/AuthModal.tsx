@@ -44,7 +44,7 @@ function AuthModal({ onClose, onSuccess }: AuthModalProps) {
     <div role="dialog" aria-modal="true" aria-labelledby="auth-title" className="w-full max-w-md rounded-[24px] bg-white p-6 shadow-2xl sm:p-8">
       <div className="flex items-start justify-between">
         <div>
-          <span className="mb-5 grid size-10 place-items-center rounded-xl bg-[#0b3b66] text-white"><AuthIcon><path d="m3 17 6-6 4 4 8-9" /><path d="M15 6h6v6" /></AuthIcon></span>
+          <img src="/favicon.svg" alt="Stockly" className="mb-5 size-10 rounded-xl shadow-[0_7px_18px_rgba(23,60,44,.18)]" />
           <h2 id="auth-title" className="text-2xl font-semibold tracking-[-.035em]">{mode === 'login' ? 'Welcome back' : 'Create your account'}</h2>
           <p className="mt-2 text-sm text-[#77827b]">{mode === 'login' ? 'Sign in to manage your investments.' : 'Start building a smarter portfolio.'}</p>
         </div>
