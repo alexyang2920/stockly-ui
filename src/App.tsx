@@ -277,8 +277,8 @@ function App() {
             <div className="relative overflow-hidden rounded-[22px] border border-[#dce6de] bg-[#e4effc] p-6">
               <div className="absolute -right-8 -top-10 size-32 rounded-full border-[18px] border-white/40" />
               <span className="grid size-9 place-items-center rounded-xl bg-white text-[#0d6eaf] shadow-sm"><Icon name="sparkles" className="size-[18px]" /></span>
-              <h3 className="mt-5 max-w-[220px] text-lg font-semibold leading-tight tracking-[-.025em]">Make smarter moves with financial insights.</h3>
-              <button onClick={() => setToast('Search for a company to explore its financials')} className="mt-4 flex items-center gap-2 text-sm font-bold text-[#0b5597]">Explore financials <Icon name="arrow" className="size-4" /></button>
+              <h3 className="mt-5 max-w-[220px] text-lg font-semibold leading-tight tracking-[-.025em]">Make more confident income decisions.</h3>
+              <button onClick={() => setToast('Open Dividend history to explore a company’s income record')} className="mt-4 flex items-center gap-2 text-sm font-bold text-[#0b5597]">Explore dividends <Icon name="arrow" className="size-4" /></button>
             </div>
           </aside>
         </section>

@@ -1,22 +1,22 @@
 import { useEffect, useMemo, useState } from 'react'
 import { apiErrorMessage } from '../api/client'
-import { getDividends, getFinancials, getInstrument, getQuote, getQuoteHistory, getSplits, type FinancialPeriod } from '../api/instruments'
+import { getDividends, getInstrument, getQuote, getQuoteHistory, getSplits } from '../api/instruments'
 import InstrumentMark from '../components/InstrumentMark'
 import { formatMarketDate, localDateKey } from '../utils/date'
-import type { DailyQuote, DividendEvent, FinancialFact, Instrument, InstrumentQuote, StockSplitEvent } from '../types/instrument'
+import type { DailyQuote, DividendEvent, Instrument, InstrumentQuote, StockSplitEvent } from '../types/instrument'
 
-type Period = FinancialPeriod
 type DividendPeriod = 'ANNUAL' | 'QUARTERLY' | 'MONTHLY'
 type PriceRange = '1M' | '3M' | '1Y' | '5Y' | '20Y'
-type DetailTab = 'dividends' | 'splits' | 'financials'
-type FinancialPeriodColumn = { key: string, label: string, periodEnd: string, fiscalYear: number }
+type DetailTab = 'dividends' | 'splits'
 type DividendChartPoint = { key: string, label: string, year: number, quarter?: number, month?: number, amount: number, change: number | null }
 
 type InstrumentPageProps = {
   symbol: string
 }
 
-const metricLabels: Record<string, string> = {
+/* Retained in the backend for a future dividend-health summary. The full
+   financial-statement UI is deliberately not part of the dividend-focused app. */
+/* const metricLabels: Record<string, string> = {
   REVENUE: 'Revenue', COST_OF_REVENUE: 'Cost of revenue', TOTAL_COSTS_AND_EXPENSES: 'Total costs & expenses', GROSS_PROFIT: 'Gross profit', OPERATING_EXPENSES: 'Operating expenses', OPERATING_INCOME: 'Operating income', INTEREST_EXPENSE: 'Interest expense', INCOME_BEFORE_TAX: 'Income before tax', INCOME_TAX_EXPENSE: 'Income tax expense', NET_INCOME: 'Net income', DILUTED_EPS: 'Diluted EPS', CASH_AND_EQUIVALENTS: 'Cash & equivalents', CURRENT_ASSETS: 'Current assets', TOTAL_ASSETS: 'Total assets', CURRENT_LIABILITIES: 'Current liabilities', TOTAL_LIABILITIES: 'Total liabilities', CURRENT_DEBT: 'Current debt', LONG_TERM_DEBT: 'Long-term debt', TOTAL_DEBT: 'Total debt', SHAREHOLDERS_EQUITY: 'Book value (shareholders’ equity)', OPERATING_CASH_FLOW: 'Operating cash flow', CAPITAL_EXPENDITURES: 'Capital expenditures', FREE_CASH_FLOW: 'Free cash flow',
 }
 
@@ -52,11 +52,12 @@ const statementGroups = [
   { key: 'CASH_FLOW', title: 'Cash flow statement', description: 'Operating cash generation and capital allocation', metrics: ['OPERATING_CASH_FLOW', 'CAPITAL_EXPENDITURES', 'FREE_CASH_FLOW'] },
 ] as const
 
+*/
 function humanize(value: string) {
   return value.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (character) => character.toUpperCase())
 }
 
-function formatFact(value: number, unit: string) {
+/* function formatFact(value: number, unit: string) {
   if (unit === 'USD/shares') return `$${value.toFixed(2)}`
   if (unit === 'shares') return new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(value)
   if (unit === 'USD') {
@@ -64,17 +65,12 @@ function formatFact(value: number, unit: string) {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', notation: 'compact', minimumFractionDigits: billions ? 2 : undefined, maximumFractionDigits: billions ? 2 : 1 }).format(value)
   }
   return new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 2 }).format(value)
-}
+} */
 
 function InstrumentPage({ symbol }: InstrumentPageProps) {
   const [instrument, setInstrument] = useState<Instrument | null>(null)
-  const [facts, setFacts] = useState<FinancialFact[]>([])
-  const [period, setPeriod] = useState<Period>('QUARTERLY')
-  const [loadedPeriod, setLoadedPeriod] = useState<Period>('QUARTERLY')
   const [loading, setLoading] = useState(true)
-  const [factsLoading, setFactsLoading] = useState(true)
   const [error, setError] = useState('')
-  const [factsMessage, setFactsMessage] = useState('')
   const [quote, setQuote] = useState<InstrumentQuote | null>(null)
   const [dividends, setDividends] = useState<DividendEvent[]>([])
   const [dividendPeriod, setDividendPeriod] = useState<DividendPeriod>('QUARTERLY')
@@ -84,7 +80,7 @@ function InstrumentPage({ symbol }: InstrumentPageProps) {
   const [priceRange, setPriceRange] = useState<PriceRange>('1Y')
   const [priceHistoryLoading, setPriceHistoryLoading] = useState(true)
   const [priceHistoryError, setPriceHistoryError] = useState('')
-  const [activeTab, setActiveTab] = useState<DetailTab>('financials')
+  const [activeTab, setActiveTab] = useState<DetailTab>('dividends')
 
   useEffect(() => {
     const controller = new AbortController()
@@ -126,21 +122,6 @@ function InstrumentPage({ symbol }: InstrumentPageProps) {
 
   useEffect(() => {
     const controller = new AbortController()
-    getFinancials(symbol, period, controller.signal)
-      .then((data) => {
-        setFacts(data)
-        setLoadedPeriod(period)
-      })
-      .catch((reason: unknown) => {
-        if (reason instanceof DOMException && reason.name === 'AbortError') return
-        setFactsMessage(apiErrorMessage(reason, 'Financial data is unavailable'))
-      })
-      .finally(() => { if (!controller.signal.aborted) setFactsLoading(false) })
-    return () => controller.abort()
-  }, [period, symbol])
-
-  useEffect(() => {
-    const controller = new AbortController()
     Promise.allSettled([getQuote(symbol, controller.signal), getDividends(symbol, controller.signal), getSplits(symbol, controller.signal)])
       .then(([quoteResult, dividendResult, splitResult]) => {
         if (quoteResult.status === 'fulfilled') setQuote(quoteResult.value)
@@ -151,7 +132,7 @@ function InstrumentPage({ symbol }: InstrumentPageProps) {
     return () => controller.abort()
   }, [symbol])
 
-  const financialTable = useMemo(() => {
+  /* const financialTable = useMemo(() => {
     const periodMap = new Map<string, FinancialPeriodColumn>()
     const factMap = new Map<string, Map<string, FinancialFact>>()
 
@@ -200,7 +181,7 @@ function InstrumentPage({ symbol }: InstrumentPageProps) {
       return { ...group, metrics: [...configured, ...additional] }
     }).filter((group) => group.metrics.length > 0)
     return { periods, groups, metricCount: groups.reduce((count, group) => count + group.metrics.length, 0), factMap }
-  }, [facts, loadedPeriod])
+  }, [facts, loadedPeriod]) */
 
   const paysMonthlyDividends = dividends.some((event) => event.frequency === 12)
   const effectiveDividendPeriod: DividendPeriod = dividendPeriod === 'ANNUAL' ? 'ANNUAL' : paysMonthlyDividends ? 'MONTHLY' : 'QUARTERLY'
@@ -260,17 +241,8 @@ function InstrumentPage({ symbol }: InstrumentPageProps) {
     return dividends.filter((event) => Number(event.exDividendDate.slice(0, 4)) >= firstVisibleYear)
   }, [dividends])
 
-  const changePeriod = (value: string) => {
-    setFactsLoading(true)
-    setFactsMessage('')
-    setPeriod(value as Period)
-  }
-
   if (loading) return <main className="mx-auto max-w-[1560px] px-5 py-12 lg:px-8"><div className="h-52 animate-pulse rounded-[24px] bg-white" /></main>
   if (error || !instrument) return <main className="mx-auto max-w-[900px] px-5 py-16 text-center"><div className="rounded-[24px] border border-rose-200 bg-white p-10"><h1 className="text-2xl font-semibold">Instrument unavailable</h1><p className="mt-2 text-[#566f88]">{error || `We could not find ${symbol}.`}</p></div></main>
-  const cikDigits = instrument.cik?.replace(/\D/g, '')
-  const secCompanyFactsUrl = cikDigits ? `https://data.sec.gov/api/xbrl/companyfacts/CIK${cikDigits.padStart(10, '0')}.json` : null
-
   return <main className="page-shell">
 
     <section className="rounded-[24px] border border-[#c3d5e8] bg-white p-6 shadow-[0_12px_40px_rgba(23,39,30,.035)] md:p-8">
@@ -292,7 +264,7 @@ function InstrumentPage({ symbol }: InstrumentPageProps) {
     </section>
 
       <nav className="mb-6 mt-6 flex overflow-x-auto border-b border-[#c4d5e8]" aria-label="Instrument details">
-        {([['financials', 'Financials'], ['dividends', 'Dividend history'], ['splits', 'Split history']] as const).map(([key, label]) => <button key={key} onClick={() => setActiveTab(key)} className={`relative min-w-max px-4 py-4 text-sm font-bold transition-colors after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:transition ${activeTab === key ? 'text-[#0b3b66] after:bg-[#0b5b9e] dark:text-[#bddcff]' : 'text-[#566f88] after:bg-transparent hover:bg-[#f4f8fd] hover:text-[#0b5b9e]'}`} aria-current={activeTab === key ? 'page' : undefined}>{label}</button>)}
+        {([['dividends', 'Dividend history'], ['splits', 'Split history']] as const).map(([key, label]) => <button key={key} onClick={() => setActiveTab(key)} className={`relative min-w-max px-4 py-4 text-sm font-bold transition-colors after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:transition ${activeTab === key ? 'text-[#0b3b66] after:bg-[#0b5b9e] dark:text-[#bddcff]' : 'text-[#566f88] after:bg-transparent hover:bg-[#f4f8fd] hover:text-[#0b5b9e]'}`} aria-current={activeTab === key ? 'page' : undefined}>{label}</button>)}
       </nav>
 
     {activeTab === 'dividends' && <section className="surface-card surface-card--flush">
@@ -305,13 +277,6 @@ function InstrumentPage({ symbol }: InstrumentPageProps) {
       {marketLoading ? <div className="h-32 animate-pulse bg-[#f4f8fd]" /> : splits.length ? <div className="divide-y divide-[#ecefec]">{splits.map((split) => <div key={split.id} className="flex items-center justify-between gap-4 px-6 py-4"><div><p className="text-sm font-semibold">{humanize(split.adjustmentType)}</p><p className="mt-1 text-xs text-[#556c84]">Effective {split.executionDate}</p></div><span className="rounded-xl bg-[#edf3ee] px-3 py-2 text-sm font-bold tabular-nums">{split.splitTo}:{split.splitFrom}</span></div>)}</div> : <div className="px-6 py-9 text-center text-sm text-[#556c84]">No stock splits found.</div>}
     </section>}
 
-    {activeTab === 'financials' && instrument.instrumentType === 'ETF' ? <section className="rounded-[22px] border border-[#c3d5e8] bg-[#e7f1fc] p-7"><h2 className="text-lg font-semibold">ETF analytics are coming next</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-[#4d6882]">SEC company financial statements do not apply to ETFs. Fund holdings, expense ratio, AUM, and NAV require a separate fund-data provider.</p></section> : <>
-      {activeTab === 'financials' && <section className="surface-card surface-card--flush">
-        <div className="flex flex-col justify-between gap-4 border-b border-[#dbe6f2] p-5 sm:flex-row sm:items-center md:px-7"><div><h2 className="text-xl font-semibold tracking-[-.025em]">Financial history</h2><div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1"><p className="text-sm text-[#556c84]">Latest 10 fiscal years from synchronized SEC filings</p>{secCompanyFactsUrl && <a href={secCompanyFactsUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-bold text-[#0b5b9e] underline decoration-[#a8b9ae] underline-offset-4 hover:text-[#0b3b66] dark:text-[#8bc5f5]" title="Open the SEC Company Facts JSON used by Stockly">SEC company facts JSON<svg className="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 5h5v5M10 14 19 5M19 14v5H5V5h5" /></svg></a>}</div></div><Segmented values={['ANNUAL', 'QUARTERLY']} active={period} onChange={changePeriod} /></div>
-        {factsMessage && financialTable.metricCount > 0 && <div role="alert" className="border-b border-rose-200 bg-rose-50 px-6 py-3 text-sm text-rose-700">{factsMessage}</div>}
-        {financialTable.metricCount > 0 ? <div className={`relative transition-opacity ${factsLoading ? 'opacity-55' : 'opacity-100'}`} aria-busy={factsLoading}>{financialTable.groups.map((group) => <FinancialStatementTable key={group.key} title={group.title} description={group.description} metrics={group.metrics} periods={financialTable.periods} factMap={financialTable.factMap} />)}</div> : factsLoading ? <div className="h-72 animate-pulse bg-[#f4f8fd]" aria-label="Loading financial history" /> : <FinancialEmpty message={factsMessage} />}
-      </section>}
-    </>}
   </main>
 }
 
@@ -407,7 +372,7 @@ function Segmented({ values, active, onChange }: { values: string[], active: str
   return <div className="flex rounded-xl bg-[#e6f0fb] p-1">{values.map((value) => <button key={value} onClick={() => onChange(value)} className={`rounded-lg px-3 py-2 text-[11px] font-bold transition ${active === value ? 'bg-white text-[#0b3b66] shadow-sm' : 'text-[#526d87]'}`}>{value}</button>)}</div>
 }
 
-function FinancialStatementTable({ title, description, metrics, periods, factMap }: { title: string, description: string, metrics: string[], periods: FinancialPeriodColumn[], factMap: Map<string, Map<string, FinancialFact>> }) {
+/* function FinancialStatementTable({ title, description, metrics, periods, factMap }: { title: string, description: string, metrics: string[], periods: FinancialPeriodColumn[], factMap: Map<string, Map<string, FinancialFact>> }) {
   const [expandedMetrics, setExpandedMetrics] = useState<Set<string>>(() => new Set())
   const toggleMetric = (metric: string) => setExpandedMetrics((current) => {
     const next = new Set(current)
@@ -465,6 +430,6 @@ function FinancialMetricCell({ label, description, periods, factsByPeriod, rowIn
 
 function FinancialEmpty({ message }: { message: string }) {
   return <div className="m-6 rounded-2xl border border-dashed border-[#b9cce0] bg-[#f9fbff] px-5 py-9 text-center"><p className="font-semibold">Financial data is not available yet</p><p className="mx-auto mt-1 max-w-xl text-sm text-[#556c84]">{message || 'Synchronize this company’s SEC filings through the API to populate ratios and financial statements.'}</p></div>
-}
+} */
 
 export default InstrumentPage
