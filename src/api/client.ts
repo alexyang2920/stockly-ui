@@ -16,6 +16,7 @@ type AuthLifecycle = {
 
 let authLifecycle: AuthLifecycle | null = null
 let refreshPromise: Promise<AuthResponse> | null = null
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? ''
 
 export function configureAuthLifecycle(lifecycle: AuthLifecycle | null) {
   authLifecycle = lifecycle
@@ -33,7 +34,10 @@ export class ApiClientError extends Error {
 
 async function refreshAccessToken() {
   if (!refreshPromise) {
-    refreshPromise = fetch('/api/v1/auth/refresh', { method: 'POST' })
+    refreshPromise = fetch(`${apiBaseUrl}/api/v1/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+    })
       .then(async (response) => {
         if (!response.ok) throw new ApiClientError('Your session has expired', response.status)
         const refreshed = await response.json() as AuthResponse
@@ -48,8 +52,9 @@ async function refreshAccessToken() {
 export async function apiRequest<T>(path: string, options: RequestOptions = {}, retryAfterRefresh = true): Promise<T> {
   const { auth, body, headers, ...requestOptions } = options
   const formData = body instanceof FormData
-  const response = await fetch(`/api/v1${path}`, {
+  const response = await fetch(`${apiBaseUrl}/api/v1${path}`, {
     ...requestOptions,
+    credentials: 'include',
     headers: {
       ...(body !== undefined && !formData ? { 'Content-Type': 'application/json' } : {}),
       ...(auth ? { Authorization: `${auth.tokenType} ${auth.accessToken}` } : {}),
