@@ -4,6 +4,7 @@ import InstrumentMark from './components/InstrumentMark'
 import HeaderInstrumentSearch from './components/HeaderInstrumentSearch'
 import PortfolioNav from './components/PortfolioNav'
 import UserMenu from './components/UserMenu'
+import SiteFooter from './components/SiteFooter'
 import { getUserPreferences, updateUserPreferences } from './api/users'
 import { logout } from './api/auth'
 import { configureAuthLifecycle } from './api/client'
@@ -12,16 +13,19 @@ import PortfolioPage from './pages/PortfolioPage'
 import AdminPage from './pages/AdminPage'
 import DividendCalendarPage from './pages/DividendCalendarPage'
 import OverviewPage from './pages/OverviewPage'
+import LegalPage from './pages/LegalPage'
 import type { AuthResponse } from './types/auth'
 import type { Instrument } from './types/instrument'
 import './App.css'
 
-type Route = { view: 'home' } | { view: 'instrument', symbol: string } | { view: 'portfolio', section: 'holdings' | 'transactions', portfolioId?: string, addTransaction: boolean } | { view: 'dividends', portfolioId?: string } | { view: 'admin' }
+type Route = { view: 'home' } | { view: 'instrument', symbol: string } | { view: 'portfolio', section: 'holdings' | 'transactions', portfolioId?: string, addTransaction: boolean } | { view: 'dividends', portfolioId?: string } | { view: 'admin' } | { view: 'legal', page: 'privacy' | 'terms' }
 
 function routeFromLocation(): Route {
   const instrumentMatch = window.location.pathname.match(/^\/instruments\/([^/]+)$/)
   if (instrumentMatch) return { view: 'instrument', symbol: decodeURIComponent(instrumentMatch[1]).toUpperCase() }
   if (window.location.pathname === '/admin') return { view: 'admin' }
+  if (window.location.pathname === '/privacy') return { view: 'legal', page: 'privacy' }
+  if (window.location.pathname === '/terms') return { view: 'legal', page: 'terms' }
   if (window.location.pathname === '/portfolio/dividends') return { view: 'dividends' }
   if (window.location.pathname === '/portfolio' || window.location.pathname === '/portfolio/holdings' || window.location.pathname === '/portfolio/transactions') {
     const params = new URLSearchParams(window.location.search)
@@ -168,7 +172,7 @@ function App() {
   }
 
   const navigate = (nextRoute: Route) => {
-    const url = nextRoute.view === 'home' ? '/' : nextRoute.view === 'instrument' ? `/instruments/${encodeURIComponent(nextRoute.symbol)}` : nextRoute.view === 'admin' ? '/admin' : nextRoute.view === 'dividends' ? '/portfolio/dividends' : `/portfolio/${nextRoute.section}${nextRoute.addTransaction ? '?add=transaction' : ''}`
+    const url = nextRoute.view === 'home' ? '/' : nextRoute.view === 'instrument' ? `/instruments/${encodeURIComponent(nextRoute.symbol)}` : nextRoute.view === 'admin' ? '/admin' : nextRoute.view === 'legal' ? `/${nextRoute.page}` : nextRoute.view === 'dividends' ? '/portfolio/dividends' : `/portfolio/${nextRoute.section}${nextRoute.addTransaction ? '?add=transaction' : ''}`
     window.history.pushState({}, '', url)
     setRoute(nextRoute)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -204,9 +208,9 @@ function App() {
     <div className="min-h-screen bg-white text-[#0d243d]">
       <header className="sticky top-0 z-40 border-b border-[#c4d5e8] bg-[#f4f8fd]/95 backdrop-blur-xl">
         <div className="mx-auto flex h-[72px] max-w-[1560px] items-center gap-5 px-5 md:gap-3 lg:px-8 xl:gap-5">
-          <button className="flex items-center gap-2.5" onClick={() => navigate({ view: 'home' })} aria-label="Stockly home">
+          <button className="flex items-center gap-2.5" onClick={() => navigate({ view: 'home' })} aria-label="FolioNest home">
             <img src="/favicon.svg" alt="" className="size-9 rounded-xl shadow-[0_7px_18px_rgba(23,60,44,.18)]" />
-            <span className="brand-wordmark hidden text-lg font-bold tracking-[-.035em] text-[#0b3b66] sm:block">Stockly</span>
+            <span className="brand-wordmark text-base font-bold tracking-[-.035em] text-[#0b3b66] sm:text-lg">FolioNest</span>
           </button>
 
           <nav className="hidden items-center gap-1 xl:flex" aria-label="Main navigation">
@@ -288,6 +292,9 @@ function App() {
       {route.view === 'portfolio' && <PortfolioPage key={`${auth?.user.id ?? 'guest'}-${route.section}-${route.portfolioId ?? preferredPortfolioId ?? 'default'}-${route.addTransaction}`} auth={auth} section={route.section} requestedPortfolioId={route.portfolioId ?? preferredPortfolioId} startWithTransaction={route.addTransaction} onNeedAuth={() => setShowModal(true)} onSelectInstrument={(symbol) => navigate({ view: 'instrument', symbol })} />}
       {route.view === 'dividends' && <DividendCalendarPage key={`${auth?.user.id ?? 'guest'}-${route.portfolioId ?? preferredPortfolioId ?? 'default'}`} auth={auth} requestedPortfolioId={route.portfolioId ?? preferredPortfolioId} onNeedAuth={() => setShowModal(true)} onSelectInstrument={(symbol) => navigate({ view: 'instrument', symbol })} />}
       {route.view === 'admin' && <AdminPage auth={auth} onNeedAuth={() => setShowModal(true)} />}
+      {route.view === 'legal' && <LegalPage page={route.page} />}
+
+      <SiteFooter onPrivacy={() => navigate({ view: 'legal', page: 'privacy' })} onTerms={() => navigate({ view: 'legal', page: 'terms' })} />
 
       {toast && <div className="fixed bottom-5 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-xl bg-[#0d243d] px-4 py-3 text-sm font-medium text-white shadow-2xl"><span className="grid size-5 place-items-center rounded-full bg-[#38bdf8] text-[#0b3b66]"><Icon name="check" className="size-3.5" /></span>{toast}</div>}
       {showModal && <AuthModal onClose={() => setShowModal(false)} onSuccess={completeAuth} />}

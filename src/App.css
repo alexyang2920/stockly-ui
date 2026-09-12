@@ -17,6 +17,28 @@ input:focus-visible {
   outline-offset: 2px;
 }
 
+.legal-copy h2 {
+  color: #163b5c;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.dark .legal-copy h2 {
+  color: white;
+}
+
+.legal-copy a {
+  color: #0b5597;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.dark .legal-copy a {
+  color: #8bc5f5;
+}
+
 @media (prefers-reduced-motion: no-preference) {
   button,
   input {

@@ -39,7 +39,7 @@ const metricDescriptions: Record<string, string> = {
   TOTAL_LIABILITIES: 'All financial obligations owed by the company at the period end.',
   CURRENT_DEBT: 'Interest-bearing debt due within roughly one year, based on the company’s available SEC debt disclosure.',
   LONG_TERM_DEBT: 'Borrowings and debt obligations generally due more than one year from the period end.',
-  TOTAL_DEBT: 'Combined current and noncurrent interest-bearing debt. Stockly uses a reported SEC total when available, otherwise it adds current and long-term debt.',
+  TOTAL_DEBT: 'Combined current and noncurrent interest-bearing debt. FolioNest uses a reported SEC total when available, otherwise it adds current and long-term debt.',
   SHAREHOLDERS_EQUITY: 'The company’s total book value: the residual value attributable to shareholders after subtracting liabilities from assets.',
   OPERATING_CASH_FLOW: 'Cash generated or consumed by the company’s normal business operations.',
   CAPITAL_EXPENDITURES: 'Cash spent to acquire or improve property, equipment, and other long-lived operating assets.',

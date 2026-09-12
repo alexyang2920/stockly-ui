@@ -29,7 +29,7 @@ function AuthModal({ onClose, onSuccess }: AuthModalProps) {
       const response = mode === 'login' ? await login({ email, password }) : await register({ name, email, password })
       onSuccess(response)
     } catch (reason) {
-      setError(apiErrorMessage(reason, 'Cannot reach Stockly API. Make sure it is running on port 8080.'))
+      setError(apiErrorMessage(reason, 'Cannot reach FolioNest right now. Please try again.'))
     } finally {
       setLoading(false)
     }
@@ -44,7 +44,10 @@ function AuthModal({ onClose, onSuccess }: AuthModalProps) {
     <div role="dialog" aria-modal="true" aria-labelledby="auth-title" className="w-full max-w-md rounded-[24px] bg-white p-6 shadow-2xl sm:p-8">
       <div className="flex items-start justify-between">
         <div>
-          <img src="/favicon.svg" alt="Stockly" className="mb-5 size-10 rounded-xl shadow-[0_7px_18px_rgba(23,60,44,.18)]" />
+          <div className="mb-5 flex items-center gap-2.5">
+            <img src="/favicon.svg" alt="FolioNest" className="size-10 rounded-xl shadow-[0_7px_18px_rgba(23,60,44,.18)]" />
+            <span className="text-lg font-bold tracking-[-.035em] text-[#0b3b66]">FolioNest</span>
+          </div>
           <h2 id="auth-title" className="text-2xl font-semibold tracking-[-.035em]">{mode === 'login' ? 'Welcome back' : 'Create your account'}</h2>
           <p className="mt-2 text-sm text-[#77827b]">{mode === 'login' ? 'Sign in to manage your investments.' : 'Start building a smarter portfolio.'}</p>
         </div>
@@ -59,7 +62,7 @@ function AuthModal({ onClose, onSuccess }: AuthModalProps) {
         <button disabled={loading} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0b3b66] py-3.5 text-sm font-bold text-white transition hover:bg-[#0b4f89] disabled:opacity-60">{loading ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create account'} {!loading && <AuthIcon className="size-4"><path d="M5 12h14M13 6l6 6-6 6" /></AuthIcon>}</button>
       </form>
 
-      <p className="mt-5 text-center text-sm text-[#78827c]">{mode === 'login' ? 'New to Stockly?' : 'Already have an account?'} <button onClick={switchMode} className="font-bold text-[#0b5597] hover:underline">{mode === 'login' ? 'Create an account' : 'Sign in'}</button></p>
+      <p className="mt-5 text-center text-sm text-[#78827c]">{mode === 'login' ? 'New to FolioNest?' : 'Already have an account?'} <button onClick={switchMode} className="font-bold text-[#0b5597] hover:underline">{mode === 'login' ? 'Create an account' : 'Sign in'}</button></p>
     </div>
   </div>
 }
