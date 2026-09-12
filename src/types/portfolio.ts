@@ -78,14 +78,6 @@ export type PortfolioPerformance = {
   currency: string
 }
 
-export type PortfolioValuePoint = {
-  date: string
-  marketValue: number
-  quotedPositions: number
-  totalPositions: number
-  currency: string
-}
-
 export type FidelityImportResult = {
   rowsRead: number
   imported: number

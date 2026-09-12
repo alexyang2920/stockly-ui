@@ -123,10 +123,6 @@ body,
 .dark .page-eyebrow, .dark .page-description { color: #b9c8d9; }
 .dark .brand-wordmark, .dark .profile-email { color: #eaf1fb !important; }
 
-.dark .chart-range-tabs { background: #1a3049 !important; }
-.dark .chart-range-tab { color: #c7d8e9 !important; }
-.dark .chart-range-tab:hover { color: white !important; }
-.dark .chart-range-tab.is-active { background: #2a5277 !important; color: #f4f9ff !important; box-shadow: 0 1px 4px rgb(0 0 0 / .24); }
 
 @media (min-width: 768px) { .page-title { font-size: 2.875rem; } }
 @media (min-width: 1024px) { .page-shell { padding: 2.75rem 2rem; } }
