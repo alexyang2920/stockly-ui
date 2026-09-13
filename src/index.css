@@ -119,6 +119,13 @@ body,
 .button-primary { border-radius: .75rem; background: #0b3b66; padding: .75rem 1.25rem; color: white; font-size: .875rem; font-weight: 700; }
 .button-primary:hover { background: #0b4f89; }
 
+/* Shared control rhythm: form fields and ordinary actions stay easy to scan and
+   tap across pages. Compact icon buttons and header navigation intentionally
+   retain their smaller dimensions. */
+:is(main, [role="dialog"]) input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]):not(.sr-only),
+:is(main, [role="dialog"]) select { height: 44px; }
+:is(main, [role="dialog"]) button[class*="rounded-xl"]:not([class*="size-"]) { min-height: 44px; }
+
 .dark .surface-card, .dark .auth-card { border-color: #2d4056; background: #132235; }
 .dark .page-eyebrow, .dark .page-description { color: #b9c8d9; }
 .dark .brand-wordmark, .dark .profile-email { color: #eaf1fb !important; }

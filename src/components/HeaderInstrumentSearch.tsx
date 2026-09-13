@@ -91,7 +91,7 @@ export default function HeaderInstrumentSearch({ className = '', mobile = false,
       aria-expanded={showResults}
       aria-controls={resultsId}
       aria-autocomplete="list"
-      className={`w-full border border-[#c4d5e8] bg-white pl-10 outline-none placeholder:text-[#607890] focus:border-[#327ab7] focus:ring-4 focus:ring-[#d9e7f5] dark:border-[#304258] dark:bg-[#16283b] dark:text-[#e5ebe7] dark:focus:ring-[#22364e] ${mobile ? 'rounded-xl py-3 pr-3 text-sm' : 'rounded-xl py-2.5 pr-3 text-[11px] shadow-sm'}`}
+      className={`w-full border border-[#c4d5e8] bg-white pl-10 outline-none placeholder:text-[#607890] focus:border-[#327ab7] focus:ring-4 focus:ring-[#d9e7f5] dark:border-[#304258] dark:bg-[#16283b] dark:text-[#e5ebe7] dark:focus:ring-[#22364e] ${mobile ? 'h-11 rounded-xl pr-3 text-sm' : 'h-10 rounded-xl pr-3 text-[11px] shadow-sm'}`}
       placeholder="Search stocks or ETFs"
       aria-label="Search stocks or ETFs"
     />
