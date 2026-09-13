@@ -225,7 +225,7 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-white text-[#0d243d]">
+    <div className="flex min-h-screen flex-col bg-white text-[#0d243d]">
       <header ref={mobileMenuRef} className="sticky top-0 z-40 border-b border-[#c4d5e8] bg-[#f4f8fd]/95 backdrop-blur-xl">
         <div className="mx-auto flex h-[72px] max-w-[1560px] items-center gap-5 px-5 md:gap-3 lg:px-8 xl:gap-5">
           <button className="flex items-center gap-2.5" onClick={() => navigate({ view: 'home' })} aria-label="FolioNest home">
@@ -259,6 +259,7 @@ function App() {
         </nav>}
       </header>
 
+      <div className="flex-1">
       {route.view === 'home' && <OverviewPage auth={auth} portfolioId={preferredPortfolioId} onNeedAuth={() => setShowModal(true)} onCreatePortfolio={() => setPortfolioCreateRequest((request) => request + 1)} onOpenHoldings={() => auth ? navigate({ view: 'portfolio', section: 'holdings', portfolioId: preferredPortfolioId, addTransaction: false }) : setShowModal(true)} onOpenDividends={() => auth ? navigate({ view: 'dividends', portfolioId: preferredPortfolioId }) : setShowModal(true)} onAddTransaction={() => auth ? navigate({ view: 'portfolio', section: 'transactions', portfolioId: preferredPortfolioId, addTransaction: true }) : setShowModal(true)} onSelectInstrument={(symbol) => navigate({ view: 'instrument', symbol })} />}
       {route.view === 'home' && window.location.hash === '#legacy-overview' && <main className="mx-auto max-w-[1560px] px-5 py-8 lg:px-8 lg:py-11">
         <section className="mb-9 flex flex-col justify-between gap-5 md:flex-row md:items-end">
@@ -314,6 +315,7 @@ function App() {
       {route.view === 'admin' && <AdminPage auth={auth} onNeedAuth={() => setShowModal(true)} />}
       {route.view === 'legal' && <LegalPage page={route.page} />}
       {route.view === 'account-action' && <AccountActionPage action={route.action} onSignIn={() => { navigate({ view: 'home' }); setShowModal(true) }} />}
+      </div>
 
       <SiteFooter onPrivacy={() => navigate({ view: 'legal', page: 'privacy' })} onTerms={() => navigate({ view: 'legal', page: 'terms' })} />
 
