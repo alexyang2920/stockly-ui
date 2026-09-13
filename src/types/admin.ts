@@ -43,3 +43,12 @@ export type InstrumentCatalogSyncResult = {
   skipped: number
   deactivated: number
 }
+
+export type AutomatedSyncStatus = {
+  jobName: 'INSTRUMENTS' | 'CLASSIFICATIONS' | 'QUOTES_SPLITS' | 'DIVIDENDS'
+  status: 'RUNNING' | 'COMPLETED' | 'FAILED'
+  lastStartedAt: string | null
+  lastCompletedAt: string | null
+  recordsProcessed: number
+  message: string | null
+}

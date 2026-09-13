@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { getMarketDataStatus, syncCompanyClassifications, syncInstrumentCatalog, syncMarketData } from '../api/admin'
+import { getAutomatedSyncStatus, getMarketDataStatus, syncCompanyClassifications, syncInstrumentCatalog, syncMarketData } from '../api/admin'
 import { apiErrorMessage } from '../api/client'
-import type { MarketDataDatasetStatus } from '../types/admin'
+import type { AutomatedSyncStatus, MarketDataDatasetStatus } from '../types/admin'
 import type { AuthResponse } from '../types/auth'
 import { localDateKey } from '../utils/date'
 
@@ -9,6 +9,13 @@ const datasetCopy = {
   QUOTES: ['Daily quotes', 'One grouped Massive request for all U.S. instruments'],
   DIVIDENDS: ['Dividends', 'Market-wide, incremental and automatically paginated'],
   SPLITS: ['Stock splits', 'Forward splits, reverse splits, and stock dividends'],
+} as const
+
+const automatedJobCopy = {
+  INSTRUMENTS: ['Instrument catalog', 'Latest supported stocks and ETFs'],
+  CLASSIFICATIONS: ['Classifications', 'Pending SEC company classifications'],
+  QUOTES_SPLITS: ['Quotes & splits', 'Latest closing quotes and stock splits'],
+  DIVIDENDS: ['Dividends', 'Incremental market-wide dividend events'],
 } as const
 
 function localDate(daysAgo = 0) {
@@ -26,6 +33,7 @@ function AdminPage({ auth, onNeedAuth }: { auth: AuthResponse | null, onNeedAuth
   const isAdmin = auth?.user.role === 'ADMIN'
   const [tab, setTab] = useState<'market' | 'instruments'>('instruments')
   const [statuses, setStatuses] = useState<MarketDataDatasetStatus[]>([])
+  const [automatedStatuses, setAutomatedStatuses] = useState<AutomatedSyncStatus[]>([])
   const [selected, setSelected] = useState({ QUOTES: true, DIVIDENDS: true, SPLITS: true })
   const [marketDate, setMarketDate] = useState(previousWeekday)
   const [corporateFrom, setCorporateFrom] = useState('')
@@ -42,7 +50,8 @@ function AdminPage({ auth, onNeedAuth }: { auth: AuthResponse | null, onNeedAuth
   useEffect(() => {
     if (!auth || !isAdmin) return
     const controller = new AbortController()
-    getMarketDataStatus(auth, controller.signal).then(setStatuses)
+    Promise.all([getMarketDataStatus(auth, controller.signal), getAutomatedSyncStatus(auth, controller.signal)])
+      .then(([marketStatuses, scheduledStatuses]) => { setStatuses(marketStatuses); setAutomatedStatuses(scheduledStatuses) })
       .catch((reason: unknown) => setError(apiErrorMessage(reason, 'Unable to load synchronization status.')))
       .finally(() => { if (!controller.signal.aborted) setLoading(false) })
     return () => controller.abort()
@@ -93,6 +102,7 @@ function AdminPage({ auth, onNeedAuth }: { auth: AuthResponse | null, onNeedAuth
 
   return <main className="page-shell">
     <div className="mb-6"><p className="text-xs font-bold uppercase tracking-[.15em] text-[#506a84]">FolioNest operations</p><h1 className="mt-2 text-[38px] font-semibold tracking-[-.045em] md:text-[48px]">Administration</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-[#516c86]">Manage external datasets and maintain the instrument catalog.</p></div>
+    <section className="mb-7 rounded-[22px] border border-[#c4d5e8] bg-white p-5 md:p-6"><div className="flex flex-wrap items-baseline justify-between gap-x-5 gap-y-1"><div><h2 className="text-xl font-semibold tracking-[-.025em]">Automated daily sync</h2><p className="mt-1 text-sm leading-6 text-[#556c84]">Runs in order: instruments, classifications, quotes and splits, then dividends.</p></div><span className="text-xs text-[#607991]">Times shown in your local timezone</span></div><div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{(Object.keys(automatedJobCopy) as Array<keyof typeof automatedJobCopy>).map((jobName) => { const status = automatedStatuses.find((item) => item.jobName === jobName); const failed = status?.status === 'FAILED'; return <div key={jobName} className="rounded-2xl border border-[#d9e3ee] bg-[#f8fbfe] p-4"><div className="flex items-start justify-between gap-2"><div><strong className="block text-sm">{automatedJobCopy[jobName][0]}</strong><span className="mt-1 block text-[11px] leading-4 text-[#607991]">{automatedJobCopy[jobName][1]}</span></div>{status && <span className={`shrink-0 rounded-md px-2 py-1 text-[9px] font-bold ${status.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700' : failed ? 'bg-rose-50 text-rose-700' : 'bg-[#e6f0fb] text-[#4d6882]'}`}>{status.status}</span>}</div><p className="mt-4 text-[10px] font-bold uppercase tracking-[.1em] text-[#607991]">Last run</p><p className="mt-1 text-sm font-semibold">{loading ? 'Loading…' : status?.lastCompletedAt ? new Date(status.lastCompletedAt).toLocaleString() : 'Never'}</p>{status && <p className={`mt-2 text-xs leading-5 ${failed ? 'text-rose-700' : 'text-[#526b84]'}`}>{status.recordsProcessed.toLocaleString()} records{status.message ? ` · ${status.message}` : ''}</p>}</div> })}</div></section>
     <nav className="mb-7 flex overflow-x-auto border-b border-[#c4d5e8]" aria-label="Administration sections">{([['instruments', 'Instruments'], ['market', 'Market Data']] as const).map(([key, label]) => <button key={key} onClick={() => { setTab(key); setError('') }} className={`relative min-w-max px-4 py-4 text-sm font-bold transition-colors after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:transition ${tab === key ? 'text-[#0b3b66] after:bg-[#0b5b9e] dark:text-[#bddcff]' : 'text-[#566f88] after:bg-transparent hover:bg-[#edf4fb] hover:text-[#0b5b9e]'}`} aria-current={tab === key ? 'page' : undefined}>{label}</button>)}</nav>
 
     {error && <div role="alert" className="mb-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>}
