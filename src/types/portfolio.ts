@@ -45,6 +45,7 @@ export type Holding = {
   unrealizedGain: number | null
   unrealizedGainPercent: number | null
   quoteDate: string | null
+  estimatedDividendIncome: number | null
 }
 
 export type DividendCalendarEvent = {
