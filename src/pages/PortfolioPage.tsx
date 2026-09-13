@@ -68,6 +68,8 @@ function PortfolioPage({ auth, section, requestedPortfolioId, onNeedAuth, onSele
   const [error, setError] = useState('')
   const [showTransaction, setShowTransaction] = useState(startWithTransaction)
   const [editing, setEditing] = useState<PortfolioTransaction | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<PortfolioTransaction | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const [showFidelityImport, setShowFidelityImport] = useState(false)
   const [holdingSort, setHoldingSort] = useState<{ key: HoldingSortKey, direction: SortDirection }>({ key: 'marketValue', direction: 'desc' })
   const [holdingSearch, setHoldingSearch] = useState('')
@@ -149,14 +151,18 @@ function PortfolioPage({ auth, section, requestedPortfolioId, onNeedAuth, onSele
       : { key, direction: key === 'instrument' ? 'asc' : 'desc' })
   }
 
-  const removeTransaction = async (transaction: PortfolioTransaction) => {
-    if (!auth || !selected || !window.confirm(`Delete this ${transaction.type.toLowerCase()} transaction?`)) return
+  const removeTransaction = async () => {
+    if (!auth || !selected || !deleteTarget) return
     try {
+      setDeleting(true)
       setDetailsLoading(true)
-      await deleteTransaction(auth, selected.id, transaction.id)
+      await deleteTransaction(auth, selected.id, deleteTarget.id)
+      setDeleteTarget(null)
       await loadDetails()
     } catch (reason) {
       setError(apiErrorMessage(reason, 'Unable to delete transaction.'))
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -191,13 +197,14 @@ function PortfolioPage({ auth, section, requestedPortfolioId, onNeedAuth, onSele
       {section === 'transactions' &&
       <section className="surface-card surface-card--flush">
         <div className="flex flex-col gap-4 border-b border-[#dbe6f2] px-5 py-5 lg:flex-row lg:items-center lg:justify-between lg:px-6"><div><h2 className="text-lg font-semibold tracking-[-.02em]">Transactions</h2><p className="mt-1 text-xs text-[#526b84]">{totalTransactions} recorded entries</p></div><div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap"><input value={symbolFilter} onChange={(event) => { setSymbolFilter(event.target.value.slice(0, 14)); setPage(0) }} className="min-w-0 w-full rounded-xl border border-[#c4d5e8] bg-[#f9fbff] px-3 py-2.5 text-sm uppercase outline-none focus:border-[#3077b4] sm:w-36" placeholder="Symbol" aria-label="Filter transactions by symbol" /><TransactionFilterTypeSelect value={typeFilter} onChange={(value) => { setTypeFilter(value); setPage(0) }} /><label className="col-span-2 min-w-0 sm:w-36"><span className="mb-1 block text-[10px] font-bold uppercase tracking-[.1em] text-[#607991] sm:sr-only">From</span><input type="date" value={fromFilter} max={toFilter || undefined} onChange={(event) => { setFromFilter(event.target.value); setPage(0) }} className="w-full rounded-xl border border-[#c4d5e8] bg-[#f9fbff] px-3 py-2.5 text-sm outline-none" aria-label="Transactions from date" /></label><label className="col-span-2 min-w-0 sm:w-36"><span className="mb-1 block text-[10px] font-bold uppercase tracking-[.1em] text-[#607991] sm:sr-only">To</span><input type="date" value={toFilter} min={fromFilter || undefined} onChange={(event) => { setToFilter(event.target.value); setPage(0) }} className="w-full rounded-xl border border-[#c4d5e8] bg-[#f9fbff] px-3 py-2.5 text-sm outline-none" aria-label="Transactions through date" /></label>{(symbolFilter || typeFilter || fromFilter || toFilter) && <button onClick={() => { setSymbolFilter(''); setTypeFilter(''); setFromFilter(''); setToFilter(''); setPage(0) }} className="col-span-2 justify-self-start rounded-xl px-3 py-2.5 text-sm font-bold text-[#0b5b9e] hover:bg-[#e8f1fb] sm:w-auto">Clear filters</button>}</div></div>
-        {detailsLoading ? <div className="h-48 animate-pulse bg-[#f4f8fd]" /> : transactions.length === 0 ? <EmptyState title="No transactions found" text={symbolFilter || typeFilter || fromFilter || toFilter ? 'Try changing or clearing the current filters.' : 'Add your first transaction to create a holding.'} /> : <div><div className="divide-y divide-[#ecefec]">{transactions.map((transaction) => <TransactionRow key={transaction.id} transaction={transaction} onEdit={() => { setEditing(transaction); setShowTransaction(true) }} onDelete={() => removeTransaction(transaction)} />)}</div>{totalPages > 1 && <div className="flex items-center justify-between border-t border-[#dbe6f2] px-4 py-3 text-xs sm:px-5"><button disabled={page === 0} onClick={() => setPage((current) => current - 1)} className="rounded-lg px-3 py-2 font-bold disabled:opacity-35">Previous</button><span className="text-[#526b84]">{page + 1} / {totalPages}</span><button disabled={page + 1 >= totalPages} onClick={() => setPage((current) => current + 1)} className="rounded-lg px-3 py-2 font-bold disabled:opacity-35">Next</button></div>}</div>}
+        {detailsLoading ? <div className="h-48 animate-pulse bg-[#f4f8fd]" /> : transactions.length === 0 ? <EmptyState title="No transactions found" text={symbolFilter || typeFilter || fromFilter || toFilter ? 'Try changing or clearing the current filters.' : 'Add your first transaction to create a holding.'} /> : <div><div className="divide-y divide-[#ecefec]">{transactions.map((transaction) => <TransactionRow key={transaction.id} transaction={transaction} onEdit={() => { setEditing(transaction); setShowTransaction(true) }} onDelete={() => setDeleteTarget(transaction)} />)}</div>{totalPages > 1 && <div className="flex items-center justify-between border-t border-[#dbe6f2] px-4 py-3 text-xs sm:px-5"><button disabled={page === 0} onClick={() => setPage((current) => current - 1)} className="rounded-lg px-3 py-2 font-bold disabled:opacity-35">Previous</button><span className="text-[#526b84]">{page + 1} / {totalPages}</span><button disabled={page + 1 >= totalPages} onClick={() => setPage((current) => current + 1)} className="rounded-lg px-3 py-2 font-bold disabled:opacity-35">Next</button></div>}</div>}
       </section>
       }
     </>}
 
     {showTransaction && selected && <TransactionModal auth={auth} portfolio={selected} transaction={editing} onClose={() => { setShowTransaction(false); setEditing(null) }} onSaved={async () => { setShowTransaction(false); setEditing(null); await loadDetails() }} />}
     {showFidelityImport && selected && <FidelityImportModal auth={auth} portfolio={selected} onClose={() => setShowFidelityImport(false)} onImported={loadDetails} />}
+    {deleteTarget && <DeleteTransactionModal transaction={deleteTarget} deleting={deleting} onClose={() => { if (!deleting) setDeleteTarget(null) }} onConfirm={removeTransaction} />}
   </main>
 }
 
@@ -228,6 +235,13 @@ function FidelityImportModal({ auth, portfolio, onClose, onImported }: { auth: A
       {result && <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900"><p className="font-bold">Imported {result.imported} transactions</p><p className="mt-1 text-xs">Read {result.rowsRead} rows · {result.duplicates} duplicates · {result.ignoredOptions} options ignored · {result.ignoredUnsupported} unsupported ignored</p>{result.warnings.length > 0 && <details className="mt-3"><summary className="cursor-pointer text-xs font-bold">Review {result.warnings.length} warnings</summary><ul className="mt-2 max-h-36 list-disc space-y-1 overflow-y-auto pl-5 text-xs">{result.warnings.map((warning, index) => <li key={`${index}-${warning}`}>{warning}</li>)}</ul></details>}</div>}
       <div className="flex gap-2"><button type="button" onClick={onClose} className="rounded-xl border border-[#c3d5e8] px-4 py-3 text-sm font-bold">{result ? 'Close' : 'Cancel'}</button><button disabled={importing || !file} className={`${submitClass} flex-1`}>{importing ? 'Importing…' : result ? 'Import again' : 'Import activity'}</button></div>
     </form>
+  </Modal>
+}
+
+function DeleteTransactionModal({ transaction, deleting, onClose, onConfirm }: { transaction: PortfolioTransaction, deleting: boolean, onClose: () => void, onConfirm: () => void }) {
+  return <Modal title="Delete transaction?" description={`Remove this ${transaction.type.toLowerCase()} transaction from your portfolio.`} onClose={onClose}>
+    <div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm leading-6 text-rose-800">This cannot be undone. Your holdings, cash balance, and realized gain may be recalculated.</div>
+    <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" disabled={deleting} onClick={onClose} className="rounded-xl border border-[#c3d5e8] px-4 py-3 text-sm font-bold disabled:opacity-60">Cancel</button><button type="button" disabled={deleting} onClick={onConfirm} className="rounded-xl bg-rose-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-rose-700 disabled:opacity-60">{deleting ? 'Deleting…' : 'Delete transaction'}</button></div>
   </Modal>
 }
 

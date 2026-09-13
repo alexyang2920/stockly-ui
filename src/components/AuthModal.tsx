@@ -18,6 +18,7 @@ function AuthModal({ onClose, onSuccess }: AuthModalProps) {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
 
@@ -74,10 +75,10 @@ function AuthModal({ onClose, onSuccess }: AuthModalProps) {
         <button onClick={onClose} className="grid size-9 place-items-center rounded-xl text-[#506980] hover:bg-[#f1f3f1]" aria-label="Close"><AuthIcon><path d="M6 6l12 12M18 6 6 18" /></AuthIcon></button>
       </div>
 
-      <form onSubmit={submit} className="mt-7 space-y-4">
-        {mode === 'register' && <label className="block text-sm font-semibold">Name<input required maxLength={100} autoComplete="name" value={name} onChange={(event) => setName(event.target.value)} className="mt-2 w-full rounded-xl border border-[#c3d5e8] px-3.5 py-3 font-normal outline-none focus:border-[#3b7fbd] focus:ring-4 focus:ring-[#e8f0fb]" placeholder="Alex Yang" /></label>}
-        <label className="block text-sm font-semibold">Email<input required type="email" maxLength={320} autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} className="mt-2 w-full rounded-xl border border-[#c3d5e8] px-3.5 py-3 font-normal outline-none focus:border-[#3b7fbd] focus:ring-4 focus:ring-[#e8f0fb]" placeholder="you@example.com" /></label>
-        {mode !== 'forgot' && <label className="block text-sm font-semibold">Password<input required minLength={mode === 'register' ? 8 : undefined} maxLength={72} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} value={password} onChange={(event) => setPassword(event.target.value)} type="password" className="mt-2 w-full rounded-xl border border-[#c3d5e8] px-3.5 py-3 font-normal outline-none focus:border-[#3b7fbd] focus:ring-4 focus:ring-[#e8f0fb]" placeholder={mode === 'register' ? 'At least 8 characters' : 'Your password'} /></label>}
+      <form onSubmit={submit} autoComplete="on" className="mt-7 space-y-4">
+        {mode === 'register' && <label className="block text-sm font-semibold">Name<input name="name" required maxLength={100} autoComplete="name" value={name} onChange={(event) => setName(event.target.value)} className="mt-2 w-full rounded-xl border border-[#c3d5e8] px-3.5 py-3 font-normal outline-none focus:border-[#3b7fbd] focus:ring-4 focus:ring-[#e8f0fb]" placeholder="Your full name" /></label>}
+        <label className="block text-sm font-semibold">Email<input name="email" required type="email" maxLength={320} autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} className="mt-2 w-full rounded-xl border border-[#c3d5e8] px-3.5 py-3 font-normal outline-none focus:border-[#3b7fbd] focus:ring-4 focus:ring-[#e8f0fb]" placeholder="you@example.com" /></label>
+        {mode !== 'forgot' && <label className="block text-sm font-semibold">Password<span className="relative mt-2 block"><input name="password" required minLength={mode === 'register' ? 12 : undefined} maxLength={72} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} value={password} onChange={(event) => setPassword(event.target.value)} type={showPassword ? 'text' : 'password'} className="w-full rounded-xl border border-[#c3d5e8] px-3.5 py-3 pr-14 font-normal outline-none focus:border-[#3b7fbd] focus:ring-4 focus:ring-[#e8f0fb]" placeholder={mode === 'register' ? 'At least 12 characters' : 'Your password'} /><button type="button" onClick={() => setShowPassword((current) => !current)} className="absolute inset-y-0 right-1.5 my-auto rounded-lg px-2 text-xs font-bold text-[#0b5597] hover:bg-[#e8f0fb]" aria-label={showPassword ? 'Hide password' : 'Show password'}>{showPassword ? 'Hide' : 'Show'}</button></span></label>}
         {mode === 'login' && <div className="-mt-1 flex justify-end"><button type="button" onClick={() => { setMode('forgot'); setError(''); setMessage('') }} className="text-sm font-semibold text-[#0b5597] hover:underline">Forgot password?</button></div>}
         {error && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-3 text-sm text-rose-700">{error}</div>}
         {message && <div role="status" className="rounded-xl border border-sky-200 bg-sky-50 px-3.5 py-3 text-sm text-[#0b5597]">{message}</div>}

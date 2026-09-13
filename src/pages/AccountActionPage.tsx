@@ -9,6 +9,7 @@ export default function AccountActionPage({ action, onSignIn }: AccountActionPag
   const [status, setStatus] = useState<'loading' | 'ready' | 'success' | 'error'>(action === 'verify-email' ? 'loading' : 'ready')
   const [message, setMessage] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
 
   useEffect(() => {
     if (action !== 'verify-email') return
@@ -37,7 +38,7 @@ export default function AccountActionPage({ action, onSignIn }: AccountActionPag
   }
 
   const title = action === 'verify-email' ? 'Verify your email' : 'Choose a new password'
-  const description = action === 'verify-email' ? 'We are confirming your FolioNest account.' : 'Use at least 8 characters. This will sign out your other sessions.'
+  const description = action === 'verify-email' ? 'We are confirming your FolioNest account.' : 'Use at least 12 characters. This will sign out your other sessions.'
 
   return <main className="auth-shell">
     <section className="auth-card mx-auto max-w-lg">
@@ -47,7 +48,7 @@ export default function AccountActionPage({ action, onSignIn }: AccountActionPag
       <p className="page-description">{description}</p>
       {action === 'reset-password' && status !== 'success' && <form onSubmit={submit} className="mx-auto mt-7 max-w-sm text-left">
         <label className="block text-sm font-semibold">New password
-          <input required minLength={8} maxLength={72} autoComplete="new-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} className="mt-2 w-full rounded-xl border border-[#c3d5e8] px-3.5 font-normal outline-none focus:border-[#3b7fbd] focus:ring-4 focus:ring-[#e8f0fb]" placeholder="At least 8 characters" />
+          <span className="relative mt-2 block"><input name="new-password" required minLength={12} maxLength={72} autoComplete="new-password" type={showPassword ? 'text' : 'password'} value={password} onChange={(event) => setPassword(event.target.value)} className="w-full rounded-xl border border-[#c3d5e8] px-3.5 pr-14 font-normal outline-none focus:border-[#3b7fbd] focus:ring-4 focus:ring-[#e8f0fb]" placeholder="At least 12 characters" /><button type="button" onClick={() => setShowPassword((current) => !current)} className="absolute inset-y-0 right-1.5 my-auto rounded-lg px-2 text-xs font-bold text-[#0b5597] hover:bg-[#e8f0fb]" aria-label={showPassword ? 'Hide password' : 'Show password'}>{showPassword ? 'Hide' : 'Show'}</button></span>
         </label>
         <button disabled={status === 'loading'} className="button-primary mt-5 w-full disabled:opacity-60">{status === 'loading' ? 'Updating…' : 'Update password'}</button>
       </form>}
