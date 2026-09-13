@@ -285,7 +285,7 @@ function frequencyLabel(value: number | null) { return value === 12 ? 'Monthly' 
 function QuoteDetail({ label, value, emphasis = false }: { label: string, value: string, emphasis?: boolean }) { return <div className="rounded-xl bg-[#f4f8fd] px-4 py-3"><p className="text-[10px] font-bold uppercase tracking-[.12em] text-[#607991]">{label}</p><p className={`mt-1 font-semibold tabular-nums ${emphasis ? 'text-lg tracking-[-.02em]' : 'text-sm'}`}>{value}</p></div> }
 
 function Segmented({ values, active, onChange }: { values: string[], active: string, onChange: (value: string) => void }) {
-  return <div className="flex rounded-xl bg-[#e6f0fb] p-1">{values.map((value) => <button key={value} onClick={() => onChange(value)} className={`rounded-lg px-3 py-2 text-[11px] font-bold transition ${active === value ? 'bg-white text-[#0b3b66] shadow-sm' : 'text-[#526d87]'}`}>{value}</button>)}</div>
+  return <div className="flex w-full rounded-xl bg-[#e6f0fb] p-1 sm:w-auto">{values.map((value) => <button key={value} onClick={() => onChange(value)} className={`flex-1 rounded-lg px-3 py-2 text-[11px] font-bold transition sm:flex-none ${active === value ? 'bg-white text-[#0b3b66] shadow-sm' : 'text-[#526d87]'}`}>{value}</button>)}</div>
 }
 
 /* function FinancialStatementTable({ title, description, metrics, periods, factMap }: { title: string, description: string, metrics: string[], periods: FinancialPeriodColumn[], factMap: Map<string, Map<string, FinancialFact>> }) {
