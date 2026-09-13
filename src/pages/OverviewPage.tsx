@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { apiErrorMessage } from '../api/client'
-import { getDividendCalendar, getHoldings, getPortfolioPerformance, getPortfolios } from '../api/portfolios'
+import { getDividendCalendar, getHoldings, getPortfolioPerformance, getPortfolios, getTransactions } from '../api/portfolios'
 import type { AuthResponse } from '../types/auth'
 import type { Holding, Portfolio, PortfolioPerformance } from '../types/portfolio'
 import InstrumentMark from '../components/InstrumentMark'
@@ -10,7 +10,7 @@ const dateKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() 
 const money = (value: number, currency = 'USD') => new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 2 }).format(value)
 const holdingGroup = (holding: Holding) => holding.instrumentType === 'ETF' ? 'Funds' : holding.sector || 'Not classified'
 
-function OverviewPage({ auth, portfolioId, onNeedAuth, onCreatePortfolio, onOpenHoldings, onOpenDividends, onSelectInstrument }: { auth: AuthResponse | null, portfolioId?: string, onNeedAuth: () => void, onCreatePortfolio: () => void, onOpenHoldings: () => void, onOpenDividends: () => void, onSelectInstrument: (symbol: string) => void }) {
+function OverviewPage({ auth, portfolioId, onNeedAuth, onCreatePortfolio, onOpenHoldings, onOpenDividends, onAddTransaction, onSelectInstrument }: { auth: AuthResponse | null, portfolioId?: string, onNeedAuth: () => void, onCreatePortfolio: () => void, onOpenHoldings: () => void, onOpenDividends: () => void, onAddTransaction: () => void, onSelectInstrument: (symbol: string) => void }) {
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null)
   const [holdings, setHoldings] = useState<Holding[]>([])
   const [annualIncome, setAnnualIncome] = useState(0)
@@ -19,6 +19,7 @@ function OverviewPage({ auth, portfolioId, onNeedAuth, onCreatePortfolio, onOpen
   const [loading, setLoading] = useState(Boolean(auth))
   const [error, setError] = useState('')
   const [selectedAllocation, setSelectedAllocation] = useState<string | null>(null)
+  const [emptyPortfolio, setEmptyPortfolio] = useState(false)
 
   useEffect(() => {
     if (!auth) return
@@ -27,6 +28,7 @@ function OverviewPage({ auth, portfolioId, onNeedAuth, onCreatePortfolio, onOpen
       const selected = portfolios.find((item) => item.id === portfolioId) ?? portfolios[0] ?? null
       setPortfolio(selected)
       setSelectedAllocation(null)
+      setEmptyPortfolio(false)
       if (!selected) return
       const now = new Date()
       const [holdingData, performance, dividends] = await Promise.all([
@@ -35,6 +37,10 @@ function OverviewPage({ auth, portfolioId, onNeedAuth, onCreatePortfolio, onOpen
         getDividendCalendar(auth, selected.id, dateKey(new Date(now.getFullYear(), now.getMonth(), 1)), dateKey(new Date(now.getFullYear(), now.getMonth() + 12, 0)), controller.signal),
       ])
       setHoldings(holdingData); setCashBalance(performance.cashBalance); setCashSummary(performance); setAnnualIncome(dividends.reduce((sum, event) => sum + event.projectedAmount, 0))
+      if (holdingData.length === 0) {
+        const transactions = await getTransactions(auth, selected.id, { size: 1 }, controller.signal)
+        setEmptyPortfolio(transactions.totalElements === 0)
+      }
     }).catch((reason: unknown) => { if (!(reason instanceof DOMException && reason.name === 'AbortError')) setError(apiErrorMessage(reason, 'Unable to load the portfolio overview.')) })
       .finally(() => { if (!controller.signal.aborted) setLoading(false) })
     return () => controller.abort()
@@ -52,7 +58,7 @@ function OverviewPage({ auth, portfolioId, onNeedAuth, onCreatePortfolio, onOpen
   if (!auth) return <main className="mx-auto max-w-[900px] px-5 py-16"><section className="rounded-[24px] border border-[#c4d5e8] bg-white px-7 py-16 text-center"><h1 className="text-2xl font-semibold">Your portfolio overview</h1><p className="mt-2 text-sm text-[#536d86]">Sign in to see your current value, dividend income, and allocation insights.</p><button onClick={onNeedAuth} className="mt-6 rounded-xl bg-[#0b3b66] px-5 py-3 text-sm font-bold text-white">Sign in to continue</button></section></main>
   if (loading) return <main className="mx-auto max-w-[1560px] px-5 py-10 lg:px-8"><div className="h-[560px] animate-pulse rounded-[24px] bg-white" /></main>
 
-  return <main className="mx-auto max-w-[1560px] px-5 py-8 lg:px-8 lg:py-11"><div className="mb-8"><p className="text-xs font-bold uppercase tracking-[.15em] text-[#506a84]">Portfolio overview</p><h1 className="mt-2 text-[36px] font-semibold tracking-[-.045em] md:text-[46px]">{portfolio?.name ?? 'Overview'}</h1><p className="mt-2 text-sm text-[#516c86]">Current value, dividend income, and diversification in one place.</p></div>{error && <div className="mb-5 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</div>}{!portfolio ? <section className="rounded-[24px] border border-dashed border-[#b9cce0] bg-white px-6 py-16 text-center sm:px-10"><span className="mx-auto grid size-14 place-items-center rounded-2xl bg-[#e4effb] text-xl text-[#0b5b9e]">↗</span><h2 className="mt-5 text-2xl font-semibold tracking-[-.03em]">Create your first portfolio</h2><p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[#526b84]">Start with an account, broker, or investing goal. Then add your first transaction to see your holdings, current value, and dividend income.</p><button onClick={onCreatePortfolio} className="mt-6 rounded-xl bg-[#0b3b66] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#0b4f89]">Create a portfolio</button></section> : <>
+  return <main className="mx-auto max-w-[1560px] px-5 py-8 lg:px-8 lg:py-11"><div className="mb-8"><p className="text-xs font-bold uppercase tracking-[.15em] text-[#506a84]">Portfolio overview</p><h1 className="mt-2 text-[36px] font-semibold tracking-[-.045em] md:text-[46px]">{portfolio?.name ?? 'Overview'}</h1><p className="mt-2 text-sm text-[#516c86]">Current value, dividend income, and diversification in one place.</p></div>{error && <div className="mb-5 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</div>}{!portfolio ? <section className="rounded-[24px] border border-dashed border-[#b9cce0] bg-white px-6 py-16 text-center sm:px-10"><span className="mx-auto grid size-14 place-items-center rounded-2xl bg-[#e4effb] text-xl text-[#0b5b9e]">↗</span><h2 className="mt-5 text-2xl font-semibold tracking-[-.03em]">Create your first portfolio</h2><p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[#526b84]">Start with an account, broker, or investing goal. Then add your first transaction to see your holdings, current value, and dividend income.</p><button onClick={onCreatePortfolio} className="mt-6 rounded-xl bg-[#0b3b66] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#0b4f89]">Create a portfolio</button></section> : emptyPortfolio ? <section className="rounded-[24px] border border-dashed border-[#b9cce0] bg-white px-6 py-16 text-center sm:px-10"><span className="mx-auto grid size-14 place-items-center rounded-2xl bg-[#e4effb] text-2xl font-semibold text-[#0b5b9e]">+</span><h2 className="mt-5 text-2xl font-semibold tracking-[-.03em]">Your portfolio is ready</h2><p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[#526b84]">Add your first transaction to start tracking holdings, dividend income, and portfolio value.</p><button onClick={onAddTransaction} className="mt-6 rounded-xl bg-[#0b3b66] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#0b4f89]">Add transaction</button></section> : <>
     <section className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><Metric label="Market value" value={totals.quoted ? money(totals.value, portfolio.currency) : '—'} note={`${money(totals.invested, portfolio.currency)} total invested`} color="bg-sky-100 text-sky-700">▣</Metric><CashBalanceCard value={cashBalance} summary={cashSummary} currency={portfolio.currency} /><Metric label="Unrealized gain" value={totals.quoted ? money(totals.unrealized, portfolio.currency) : '—'} note={`${totals.quoted} of ${holdings.length} positions quoted`} positive={totals.unrealized >= 0} color="bg-violet-100 text-violet-700">⌁</Metric><button onClick={onOpenDividends} className="rounded-[20px] border border-[#c4d5e8] bg-white p-5 text-left transition hover:-translate-y-0.5 hover:shadow-lg"><p className="text-[10px] font-bold uppercase tracking-[.14em] text-[#5e7790]">Passive income</p><p className="mt-2 text-2xl font-semibold tracking-[-.035em]">{money(annualIncome, portfolio.currency)}</p><p className="mt-2 text-xs text-[#526b84]">Estimated over the next 12 months →</p></button></section>
     {concentration && concentration.percent >= 40 && <section className="mb-5 flex flex-col justify-between gap-4 rounded-[20px] border border-amber-200 bg-amber-50 p-5 dark:border-amber-800/70 dark:bg-amber-950/55 sm:flex-row sm:items-center"><div><p className="text-[10px] font-bold uppercase tracking-[.13em] text-amber-700 dark:text-amber-300">Diversification insight</p><h2 className="mt-1 font-semibold text-amber-950 dark:text-amber-100">{concentration.name} represents {concentration.percent.toFixed(2)}% of this portfolio</h2><p className="mt-1 text-xs text-[#526b84] dark:text-amber-200/75">A concentrated allocation can make performance more sensitive to one part of the market.</p></div><button onClick={onOpenHoldings} className="shrink-0 rounded-xl bg-[#0b3b66] px-4 py-2.5 text-xs font-bold text-white transition hover:bg-[#0b4f89] dark:bg-amber-300 dark:text-amber-950 dark:hover:bg-amber-200">Review holdings</button></section>}
     <div className="mb-5 hidden items-end justify-between border-t border-[#dbe6f2] pt-7 lg:flex"><div><p className="page-eyebrow">Portfolio composition</p><h2 className="mt-1 text-2xl font-semibold tracking-[-.03em]">Allocation insights</h2></div><p className="max-w-sm text-right text-sm leading-6 text-[#526b84]">See how your portfolio is distributed across sectors and explore the holdings behind each allocation.</p></div>

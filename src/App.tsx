@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import AuthModal from './components/AuthModal'
 import InstrumentMark from './components/InstrumentMark'
 import HeaderInstrumentSearch from './components/HeaderInstrumentSearch'
@@ -109,6 +109,7 @@ function App() {
   const [darkMode, setDarkMode] = useState(() => document.documentElement.classList.contains('dark'))
   const [preferredPortfolioId, setPreferredPortfolioId] = useState<string | undefined>()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const mobileMenuRef = useRef<HTMLElement>(null)
   const [showModal, setShowModal] = useState(false)
   const [portfolioCreateRequest, setPortfolioCreateRequest] = useState(0)
   const [toast, setToast] = useState('')
@@ -158,6 +159,22 @@ function App() {
     window.addEventListener('popstate', onPopState)
     return () => window.removeEventListener('popstate', onPopState)
   }, [])
+
+  useEffect(() => {
+    if (!mobileOpen) return
+    const closeOnOutsideInteraction = (event: PointerEvent) => {
+      if (!mobileMenuRef.current?.contains(event.target as Node)) setMobileOpen(false)
+    }
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMobileOpen(false)
+    }
+    document.addEventListener('pointerdown', closeOnOutsideInteraction)
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsideInteraction)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [mobileOpen])
 
   const completeAuth = (response: AuthResponse) => {
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(response))
@@ -209,7 +226,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-white text-[#0d243d]">
-      <header className="sticky top-0 z-40 border-b border-[#c4d5e8] bg-[#f4f8fd]/95 backdrop-blur-xl">
+      <header ref={mobileMenuRef} className="sticky top-0 z-40 border-b border-[#c4d5e8] bg-[#f4f8fd]/95 backdrop-blur-xl">
         <div className="mx-auto flex h-[72px] max-w-[1560px] items-center gap-5 px-5 md:gap-3 lg:px-8 xl:gap-5">
           <button className="flex items-center gap-2.5" onClick={() => navigate({ view: 'home' })} aria-label="FolioNest home">
             <img src="/favicon.svg" alt="" className="size-9 rounded-xl shadow-[0_7px_18px_rgba(23,60,44,.18)]" />
@@ -242,7 +259,7 @@ function App() {
         </nav>}
       </header>
 
-      {route.view === 'home' && <OverviewPage auth={auth} portfolioId={preferredPortfolioId} onNeedAuth={() => setShowModal(true)} onCreatePortfolio={() => setPortfolioCreateRequest((request) => request + 1)} onOpenHoldings={() => auth ? navigate({ view: 'portfolio', section: 'holdings', portfolioId: preferredPortfolioId, addTransaction: false }) : setShowModal(true)} onOpenDividends={() => auth ? navigate({ view: 'dividends', portfolioId: preferredPortfolioId }) : setShowModal(true)} onSelectInstrument={(symbol) => navigate({ view: 'instrument', symbol })} />}
+      {route.view === 'home' && <OverviewPage auth={auth} portfolioId={preferredPortfolioId} onNeedAuth={() => setShowModal(true)} onCreatePortfolio={() => setPortfolioCreateRequest((request) => request + 1)} onOpenHoldings={() => auth ? navigate({ view: 'portfolio', section: 'holdings', portfolioId: preferredPortfolioId, addTransaction: false }) : setShowModal(true)} onOpenDividends={() => auth ? navigate({ view: 'dividends', portfolioId: preferredPortfolioId }) : setShowModal(true)} onAddTransaction={() => auth ? navigate({ view: 'portfolio', section: 'transactions', portfolioId: preferredPortfolioId, addTransaction: true }) : setShowModal(true)} onSelectInstrument={(symbol) => navigate({ view: 'instrument', symbol })} />}
       {route.view === 'home' && window.location.hash === '#legacy-overview' && <main className="mx-auto max-w-[1560px] px-5 py-8 lg:px-8 lg:py-11">
         <section className="mb-9 flex flex-col justify-between gap-5 md:flex-row md:items-end">
           <div>
