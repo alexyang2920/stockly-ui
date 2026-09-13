@@ -21,3 +21,7 @@ export type LoginRequest = {
 export type RegisterRequest = LoginRequest & {
   name: string
 }
+
+export type AuthActionResponse = {
+  message: string
+}

@@ -14,11 +14,12 @@ import AdminPage from './pages/AdminPage'
 import DividendCalendarPage from './pages/DividendCalendarPage'
 import OverviewPage from './pages/OverviewPage'
 import LegalPage from './pages/LegalPage'
+import AccountActionPage from './pages/AccountActionPage'
 import type { AuthResponse } from './types/auth'
 import type { Instrument } from './types/instrument'
 import './App.css'
 
-type Route = { view: 'home' } | { view: 'instrument', symbol: string } | { view: 'portfolio', section: 'holdings' | 'transactions', portfolioId?: string, addTransaction: boolean } | { view: 'dividends', portfolioId?: string } | { view: 'admin' } | { view: 'legal', page: 'privacy' | 'terms' }
+type Route = { view: 'home' } | { view: 'instrument', symbol: string } | { view: 'portfolio', section: 'holdings' | 'transactions', portfolioId?: string, addTransaction: boolean } | { view: 'dividends', portfolioId?: string } | { view: 'admin' } | { view: 'legal', page: 'privacy' | 'terms' } | { view: 'account-action', action: 'verify-email' | 'reset-password' }
 
 function routeFromLocation(): Route {
   const instrumentMatch = window.location.pathname.match(/^\/instruments\/([^/]+)$/)
@@ -26,6 +27,8 @@ function routeFromLocation(): Route {
   if (window.location.pathname === '/admin') return { view: 'admin' }
   if (window.location.pathname === '/privacy') return { view: 'legal', page: 'privacy' }
   if (window.location.pathname === '/terms') return { view: 'legal', page: 'terms' }
+  if (window.location.pathname === '/verify-email') return { view: 'account-action', action: 'verify-email' }
+  if (window.location.pathname === '/reset-password') return { view: 'account-action', action: 'reset-password' }
   if (window.location.pathname === '/portfolio/dividends') return { view: 'dividends' }
   if (window.location.pathname === '/portfolio' || window.location.pathname === '/portfolio/holdings' || window.location.pathname === '/portfolio/transactions') {
     const params = new URLSearchParams(window.location.search)
@@ -172,7 +175,7 @@ function App() {
   }
 
   const navigate = (nextRoute: Route) => {
-    const url = nextRoute.view === 'home' ? '/' : nextRoute.view === 'instrument' ? `/instruments/${encodeURIComponent(nextRoute.symbol)}` : nextRoute.view === 'admin' ? '/admin' : nextRoute.view === 'legal' ? `/${nextRoute.page}` : nextRoute.view === 'dividends' ? '/portfolio/dividends' : `/portfolio/${nextRoute.section}${nextRoute.addTransaction ? '?add=transaction' : ''}`
+    const url = nextRoute.view === 'home' ? '/' : nextRoute.view === 'instrument' ? `/instruments/${encodeURIComponent(nextRoute.symbol)}` : nextRoute.view === 'admin' ? '/admin' : nextRoute.view === 'legal' ? `/${nextRoute.page}` : nextRoute.view === 'account-action' ? `/${nextRoute.action}` : nextRoute.view === 'dividends' ? '/portfolio/dividends' : `/portfolio/${nextRoute.section}${nextRoute.addTransaction ? '?add=transaction' : ''}`
     window.history.pushState({}, '', url)
     setRoute(nextRoute)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -293,6 +296,7 @@ function App() {
       {route.view === 'dividends' && <DividendCalendarPage key={`${auth?.user.id ?? 'guest'}-${route.portfolioId ?? preferredPortfolioId ?? 'default'}`} auth={auth} requestedPortfolioId={route.portfolioId ?? preferredPortfolioId} onNeedAuth={() => setShowModal(true)} onSelectInstrument={(symbol) => navigate({ view: 'instrument', symbol })} />}
       {route.view === 'admin' && <AdminPage auth={auth} onNeedAuth={() => setShowModal(true)} />}
       {route.view === 'legal' && <LegalPage page={route.page} />}
+      {route.view === 'account-action' && <AccountActionPage action={route.action} onSignIn={() => { navigate({ view: 'home' }); setShowModal(true) }} />}
 
       <SiteFooter onPrivacy={() => navigate({ view: 'legal', page: 'privacy' })} onTerms={() => navigate({ view: 'legal', page: 'terms' })} />
 
