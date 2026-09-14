@@ -12,22 +12,6 @@ export type MarketDataDatasetStatus = {
   lastHttpStatus: number | null
 }
 
-export type BulkMarketDataSyncInput = {
-  quotes: boolean
-  dividends: boolean
-  splits: boolean
-  marketDate?: string
-  corporateActionsFrom?: string
-  restartDividends?: boolean
-}
-
-export type BulkMarketDataSyncResult = {
-  startedAt: string
-  completedAt: string
-  instrumentsAvailable: number
-  datasets: MarketDataDatasetStatus[]
-}
-
 export type ClassificationSyncResult = {
   attempted: number
   succeeded: number

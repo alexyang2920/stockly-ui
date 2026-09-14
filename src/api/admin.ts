@@ -1,5 +1,5 @@
 import type { AuthResponse } from '../types/auth'
-import type { AutomatedSyncStatus, BulkMarketDataSyncInput, BulkMarketDataSyncResult, ClassificationSyncResult, InstrumentCatalogSyncResult, MarketDataDatasetStatus } from '../types/admin'
+import type { AutomatedSyncStatus, ClassificationSyncResult, InstrumentCatalogSyncResult, MarketDataDatasetStatus } from '../types/admin'
 import { apiRequest } from './client'
 
 export function getMarketDataStatus(auth: AuthResponse, signal?: AbortSignal) {
@@ -10,8 +10,16 @@ export function getAutomatedSyncStatus(auth: AuthResponse, signal?: AbortSignal)
   return apiRequest<AutomatedSyncStatus[]>('/admin/automated-sync/status', { auth, signal })
 }
 
-export function syncMarketData(auth: AuthResponse, input: BulkMarketDataSyncInput) {
-  return apiRequest<BulkMarketDataSyncResult>('/admin/market-data/sync', { method: 'POST', auth, body: input })
+export function syncDailyQuotes(auth: AuthResponse, marketDate?: string) {
+  return apiRequest<MarketDataDatasetStatus>('/admin/market-data/quotes/sync', { method: 'POST', auth, body: { marketDate } })
+}
+
+export function syncStockSplits(auth: AuthResponse, fromDate?: string) {
+  return apiRequest<MarketDataDatasetStatus>('/admin/market-data/splits/sync', { method: 'POST', auth, body: { fromDate } })
+}
+
+export function syncDividends(auth: AuthResponse, fromDate: string | undefined, restart: boolean) {
+  return apiRequest<MarketDataDatasetStatus>('/admin/market-data/dividends/sync', { method: 'POST', auth, body: { fromDate, restart } })
 }
 
 export function syncCompanyClassifications(auth: AuthResponse, limit: number) {
