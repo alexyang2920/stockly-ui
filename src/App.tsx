@@ -309,7 +309,7 @@ function App() {
         </section>
       </main>}
 
-      {route.view === 'instrument' && <InstrumentPage key={route.symbol} symbol={route.symbol} />}
+      {route.view === 'instrument' && <InstrumentPage key={route.symbol} symbol={route.symbol} auth={auth} />}
       {route.view === 'portfolio' && <PortfolioPage key={`${auth?.user.id ?? 'guest'}-${route.section}-${route.portfolioId ?? preferredPortfolioId ?? 'default'}-${route.addTransaction}`} auth={auth} section={route.section} requestedPortfolioId={route.portfolioId ?? preferredPortfolioId} startWithTransaction={route.addTransaction} onNeedAuth={() => setShowModal(true)} onSelectInstrument={(symbol) => navigate({ view: 'instrument', symbol })} />}
       {route.view === 'dividends' && <DividendCalendarPage key={`${auth?.user.id ?? 'guest'}-${route.portfolioId ?? preferredPortfolioId ?? 'default'}`} auth={auth} requestedPortfolioId={route.portfolioId ?? preferredPortfolioId} onNeedAuth={() => setShowModal(true)} onSelectInstrument={(symbol) => navigate({ view: 'instrument', symbol })} />}
       {route.view === 'admin' && <AdminPage auth={auth} onNeedAuth={() => setShowModal(true)} />}

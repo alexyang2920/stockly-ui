@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { apiErrorMessage } from '../api/client'
-import { getDividends, getInstrument, getQuote, getQuoteHistory, getSplits } from '../api/instruments'
+import { getDividends, getInstrument, getQuote, getQuoteHistory, getSplits, refreshQuoteHistory, repairQuoteHistory } from '../api/instruments'
 import InstrumentMark from '../components/InstrumentMark'
 import type { DailyQuote, DividendEvent, Instrument, InstrumentQuote, StockSplitEvent } from '../types/instrument'
+import type { AuthResponse } from '../types/auth'
 
 type DividendPeriod = 'ANNUAL' | 'QUARTERLY' | 'MONTHLY'
 type DetailTab = 'dividends' | 'splits'
@@ -11,13 +12,26 @@ type DividendChartPoint = { key: string, label: string, year: number, quarter?: 
 
 type InstrumentPageProps = {
   symbol: string
+  auth: AuthResponse | null
 }
 
 function humanize(value: string) {
   return value.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (character) => character.toUpperCase())
 }
 
-function InstrumentPage({ symbol }: InstrumentPageProps) {
+function priceRangeDates(range: PriceRange) {
+  const to = new Date()
+  const from = new Date(to)
+  if (range === '1M') from.setMonth(from.getMonth() - 1)
+  else if (range === '3M') from.setMonth(from.getMonth() - 3)
+  else if (range === '1Y') from.setFullYear(from.getFullYear() - 1)
+  else if (range === '5Y') from.setFullYear(from.getFullYear() - 5)
+  else from.setFullYear(from.getFullYear() - 20)
+  const dateKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+  return { from: dateKey(from), to: dateKey(to) }
+}
+
+function InstrumentPage({ symbol, auth }: InstrumentPageProps) {
   const [instrument, setInstrument] = useState<Instrument | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -26,6 +40,9 @@ function InstrumentPage({ symbol }: InstrumentPageProps) {
   const [priceRange, setPriceRange] = useState<PriceRange>('1Y')
   const [priceHistoryLoading, setPriceHistoryLoading] = useState(true)
   const [priceHistoryError, setPriceHistoryError] = useState('')
+  const [historySyncing, setHistorySyncing] = useState<'latest' | 'repair' | null>(null)
+  const [historySyncMessage, setHistorySyncMessage] = useState('')
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0)
   const [dividends, setDividends] = useState<DividendEvent[]>([])
   const [dividendPeriod, setDividendPeriod] = useState<DividendPeriod>('QUARTERLY')
   const [splits, setSplits] = useState<StockSplitEvent[]>([])
@@ -46,17 +63,10 @@ function InstrumentPage({ symbol }: InstrumentPageProps) {
 
   useEffect(() => {
     const controller = new AbortController()
-    const to = new Date()
-    const from = new Date(to)
-    if (priceRange === '1M') from.setMonth(from.getMonth() - 1)
-    else if (priceRange === '3M') from.setMonth(from.getMonth() - 3)
-    else if (priceRange === '1Y') from.setFullYear(from.getFullYear() - 1)
-    else if (priceRange === '5Y') from.setFullYear(from.getFullYear() - 5)
-    else from.setFullYear(from.getFullYear() - 20)
-    const dateKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+    const range = priceRangeDates(priceRange)
     setPriceHistoryLoading(true)
     setPriceHistoryError('')
-    getQuoteHistory(symbol, dateKey(from), dateKey(to), controller.signal)
+    getQuoteHistory(symbol, range.from, range.to, controller.signal)
       .then(setQuoteHistory)
       .catch((reason: unknown) => {
         if (reason instanceof DOMException && reason.name === 'AbortError') return
@@ -64,7 +74,7 @@ function InstrumentPage({ symbol }: InstrumentPageProps) {
       })
       .finally(() => { if (!controller.signal.aborted) setPriceHistoryLoading(false) })
     return () => controller.abort()
-  }, [symbol, priceRange])
+  }, [symbol, priceRange, historyRefreshKey])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -136,6 +146,27 @@ function InstrumentPage({ symbol }: InstrumentPageProps) {
     return dividends.filter((event) => Number(event.exDividendDate.slice(0, 4)) >= firstVisibleYear)
   }, [dividends])
 
+  const runHistorySync = async (mode: 'latest' | 'repair') => {
+    if (!auth || auth.user.role !== 'ADMIN') return
+    setHistorySyncing(mode)
+    setHistorySyncMessage('')
+    setPriceHistoryError('')
+    try {
+      const range = priceRangeDates(priceRange)
+      const result = mode === 'latest'
+        ? await refreshQuoteHistory(auth, symbol)
+        : await repairQuoteHistory(auth, symbol, range.from, range.to)
+      setHistorySyncMessage(result.recordsUpserted
+        ? `${result.recordsUpserted.toLocaleString()} missing trading ${result.recordsUpserted === 1 ? 'day was' : 'days were'} added${result.latestMarketDate ? ` through ${result.latestMarketDate}` : ''}.`
+        : mode === 'latest' ? 'Price history is already current.' : 'No missing trading days were found in this range.')
+      setHistoryRefreshKey((key) => key + 1)
+    } catch (reason) {
+      setPriceHistoryError(apiErrorMessage(reason, 'Unable to synchronize price history.'))
+    } finally {
+      setHistorySyncing(null)
+    }
+  }
+
   if (loading) return <main className="mx-auto max-w-[1560px] px-5 py-12 lg:px-8"><div className="h-52 animate-pulse rounded-[24px] bg-white" /></main>
   if (error || !instrument) return <main className="mx-auto max-w-[900px] px-5 py-16 text-center"><div className="rounded-[24px] border border-rose-200 bg-white p-10"><h1 className="text-2xl font-semibold">Instrument unavailable</h1><p className="mt-2 text-[#566f88]">{error || `We could not find ${symbol}.`}</p></div></main>
   return <main className="page-shell">
@@ -151,7 +182,8 @@ function InstrumentPage({ symbol }: InstrumentPageProps) {
     </section>
 
     <section className="surface-card surface-card--flush mt-6">
-      <div className="flex flex-col justify-between gap-4 border-b border-[#dbe6f2] p-5 sm:flex-row sm:items-center md:px-7"><div><h2 className="text-xl font-semibold tracking-[-.025em]">Daily price history</h2><p className="mt-1 text-sm text-[#556c84]">Stored end-of-day OHLC prices and trading volume</p></div><Segmented values={['1M', '3M', '1Y', '5Y', 'MAX']} active={priceRange} onChange={(value) => setPriceRange(value as PriceRange)} /></div>
+      <div className="flex flex-col justify-between gap-4 border-b border-[#dbe6f2] p-5 lg:flex-row lg:items-center md:px-7"><div><h2 className="text-xl font-semibold tracking-[-.025em]">Daily price history</h2><p className="mt-1 text-sm text-[#556c84]">Stored end-of-day OHLC prices and trading volume</p></div><div className="flex flex-col gap-3 sm:flex-row sm:items-center"><Segmented values={['1M', '3M', '1Y', '5Y', 'MAX']} active={priceRange} onChange={(value) => setPriceRange(value as PriceRange)} />{auth?.user.role === 'ADMIN' && <div className="flex gap-2"><button type="button" onClick={() => runHistorySync('latest')} disabled={historySyncing !== null} className="rounded-xl bg-[#0b3b66] px-3.5 py-2.5 text-xs font-bold text-white transition hover:bg-[#0b4f89] disabled:cursor-wait disabled:opacity-60">{historySyncing === 'latest' ? 'Refreshing…' : 'Refresh latest'}</button><button type="button" onClick={() => runHistorySync('repair')} disabled={historySyncing !== null} className="rounded-xl border border-[#b8cce0] bg-white px-3.5 py-2.5 text-xs font-bold text-[#315879] transition hover:bg-[#edf4fb] disabled:cursor-wait disabled:opacity-60">{historySyncing === 'repair' ? 'Repairing…' : 'Repair range'}</button></div>}</div></div>
+      {historySyncMessage && <div className="border-b border-emerald-200 bg-emerald-50 px-6 py-3 text-sm font-medium text-emerald-800">{historySyncMessage}</div>}
       {priceHistoryLoading ? <div className="h-80 animate-pulse bg-[#f4f8fd]" /> : priceHistoryError ? <div className="px-6 py-10 text-center"><p className="font-semibold text-rose-700">Price history unavailable</p><p className="mt-1 text-sm text-[#556c84]">{priceHistoryError}</p></div> : quoteHistory.length ? <PriceHistoryChart data={quoteHistory} /> : <div className="px-6 py-10 text-center"><p className="font-semibold">No daily prices found</p><p className="mt-1 text-sm text-[#556c84]">Historical prices for this range have not been synchronized.</p></div>}
     </section>
 

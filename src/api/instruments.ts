@@ -19,6 +19,23 @@ export function getQuoteHistory(symbol: string, from: string, to: string, signal
   return apiRequest<DailyQuote[]>(`/instruments/${encodeURIComponent(symbol)}/quotes/history?${parameters}`, { signal })
 }
 
+export type QuoteHistorySyncResult = {
+  symbol: string
+  from: string
+  to: string
+  recordsUpserted: number
+  latestMarketDate: string | null
+}
+
+export function refreshQuoteHistory(auth: AuthResponse, symbol: string) {
+  return apiRequest<QuoteHistorySyncResult>(`/instruments/${encodeURIComponent(symbol)}/quotes/history/refresh`, { method: 'POST', auth })
+}
+
+export function repairQuoteHistory(auth: AuthResponse, symbol: string, from: string, to: string) {
+  const parameters = new URLSearchParams({ from, to })
+  return apiRequest<QuoteHistorySyncResult>(`/instruments/${encodeURIComponent(symbol)}/quotes/history/sync-missing?${parameters}`, { method: 'POST', auth })
+}
+
 export function syncQuote(auth: AuthResponse, symbol: string) {
   return apiRequest<InstrumentQuote>(`/instruments/${encodeURIComponent(symbol)}/quote/sync`, { method: 'POST', auth })
 }
