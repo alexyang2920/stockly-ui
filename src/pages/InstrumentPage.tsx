@@ -9,6 +9,7 @@ type DividendPeriod = 'ANNUAL' | 'QUARTERLY' | 'MONTHLY'
 type DetailTab = 'dividends' | 'splits'
 type PriceRange = '1M' | '3M' | '1Y' | '5Y' | 'MAX'
 type DividendChartPoint = { key: string, label: string, year: number, quarter?: number, month?: number, amount: number, change: number | null }
+type DividendYieldPoint = { year: number, label: string, asOfDate: string, dividends: number, closingPrice: number, yieldPercent: number }
 
 type InstrumentPageProps = {
   symbol: string
@@ -37,6 +38,7 @@ function InstrumentPage({ symbol, auth }: InstrumentPageProps) {
   const [error, setError] = useState('')
   const [quote, setQuote] = useState<InstrumentQuote | null>(null)
   const [quoteHistory, setQuoteHistory] = useState<DailyQuote[]>([])
+  const [dividendYieldPrices, setDividendYieldPrices] = useState<DailyQuote[]>([])
   const [priceRange, setPriceRange] = useState<PriceRange>('1Y')
   const [priceHistoryLoading, setPriceHistoryLoading] = useState(true)
   const [priceHistoryError, setPriceHistoryError] = useState('')
@@ -75,6 +77,18 @@ function InstrumentPage({ symbol, auth }: InstrumentPageProps) {
       .finally(() => { if (!controller.signal.aborted) setPriceHistoryLoading(false) })
     return () => controller.abort()
   }, [symbol, priceRange, historyRefreshKey])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    const to = new Date()
+    const from = new Date(to)
+    from.setFullYear(from.getFullYear() - 15)
+    const dateKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+    getQuoteHistory(symbol, dateKey(from), dateKey(to), controller.signal)
+      .then(setDividendYieldPrices)
+      .catch(() => setDividendYieldPrices([]))
+    return () => controller.abort()
+  }, [symbol, historyRefreshKey])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -146,6 +160,28 @@ function InstrumentPage({ symbol, auth }: InstrumentPageProps) {
     return dividends.filter((event) => Number(event.exDividendDate.slice(0, 4)) >= firstVisibleYear)
   }, [dividends])
 
+  const dividendYieldHistory = useMemo(() => {
+    const closingPriceByYear = new Map<number, DailyQuote>()
+    dividendYieldPrices.forEach((price) => {
+      const year = Number(price.date.slice(0, 4))
+      const current = closingPriceByYear.get(year)
+      if (!current || price.date > current.date) closingPriceByYear.set(year, price)
+    })
+    const currentYear = new Date().getFullYear()
+    const firstVisibleYear = currentYear - 14
+    return [...closingPriceByYear.entries()].sort(([left], [right]) => left - right).flatMap(([year, closingQuote]): DividendYieldPoint[] => {
+      if (year < firstVisibleYear || closingQuote.close <= 0) return []
+      const end = new Date(`${closingQuote.date}T00:00:00Z`)
+      const start = new Date(end)
+      start.setUTCFullYear(start.getUTCFullYear() - 1)
+      const startDate = start.toISOString().slice(0, 10)
+      const trailingDividends = dividends
+        .filter((event) => event.exDividendDate > startDate && event.exDividendDate <= closingQuote.date)
+        .reduce((sum, event) => sum + (event.splitAdjustedCashAmount ?? event.cashAmount), 0)
+      return trailingDividends > 0 ? [{ year, label: `${year}${year === currentYear ? ' TTM' : ''}`, asOfDate: closingQuote.date, dividends: trailingDividends, closingPrice: closingQuote.close, yieldPercent: trailingDividends / closingQuote.close * 100 }] : []
+    })
+  }, [dividends, dividendYieldPrices])
+
   const runHistorySync = async (mode: 'latest' | 'repair') => {
     if (!auth || auth.user.role !== 'ADMIN') return
     setHistorySyncing(mode)
@@ -193,7 +229,7 @@ function InstrumentPage({ symbol, auth }: InstrumentPageProps) {
 
     {activeTab === 'dividends' && <section className="surface-card surface-card--flush">
       <div className="flex flex-col justify-between gap-4 border-b border-[#dbe6f2] p-5 sm:flex-row sm:items-center md:px-7"><div><h2 className="text-xl font-semibold tracking-[-.025em]">Dividend history</h2><p className="mt-1 text-sm text-[#556c84]">Latest 15 calendar years · split-adjusted distributions · U.S. market dates (ET)</p></div><Segmented values={['ANNUAL', paysMonthlyDividends ? 'MONTHLY' : 'QUARTERLY']} active={effectiveDividendPeriod} onChange={(value) => setDividendPeriod(value as DividendPeriod)} /></div>
-      {marketLoading ? <div className="h-72 animate-pulse bg-[#f4f8fd]" /> : displayedDividends.length ? <><DividendHistoryChart data={dividendChartData} currency={displayedDividends[0]?.currency ?? 'USD'} period={effectiveDividendPeriod} /><div className="overflow-x-auto border-t border-[#dbe6f2]"><table className="w-full min-w-[760px] text-left"><thead className="bg-[#f9fbff] text-[10px] font-bold uppercase tracking-[.12em] text-[#5d768f]"><tr><th className="px-6 py-3">Ex-dividend</th><th className="px-4 py-3">Pay date</th><th className="px-4 py-3">Type</th><th className="px-4 py-3">Frequency</th><th className="px-4 py-3 text-right">Reported</th><th className="px-6 py-3 text-right">Split-adjusted</th></tr></thead><tbody>{displayedDividends.map((event) => <tr key={`${event.exDividendDate}-${event.cashAmount}`} className="border-t border-[#ecefec] hover:bg-[#fafcff] dark:hover:bg-[#172b40]"><td className="px-6 py-4 text-sm font-semibold">{event.exDividendDate}</td><td className="px-4 py-4 text-sm text-[#506981]">{event.payDate ?? '—'}</td><td className="px-4 py-4 text-sm">{event.dividendType ? humanize(event.dividendType.toLowerCase()) : 'Cash'}</td><td className="px-4 py-4 text-sm text-[#506981]">{frequencyLabel(event.frequency)}</td><td className="px-4 py-4 text-right text-sm tabular-nums text-[#506981]">{formatMoney(event.cashAmount, event.currency)}</td><td className="px-6 py-4 text-right text-sm font-bold tabular-nums">{formatMoney(event.splitAdjustedCashAmount ?? event.cashAmount, event.currency)}</td></tr>)}</tbody></table></div></> : <div className="px-6 py-10 text-center"><p className="font-semibold">No dividend events found</p><p className="mt-1 text-sm text-[#556c84]">This instrument may not pay a dividend, or its history has not been synchronized.</p></div>}
+      {marketLoading ? <div className="h-72 animate-pulse bg-[#f4f8fd]" /> : displayedDividends.length ? <><DividendHistoryChart data={dividendChartData} currency={displayedDividends[0]?.currency ?? 'USD'} period={effectiveDividendPeriod} />{dividendYieldHistory.length > 0 && <AnnualDividendYieldChart data={dividendYieldHistory} currency={displayedDividends[0]?.currency ?? 'USD'} />}<div className="overflow-x-auto border-t border-[#dbe6f2]"><table className="w-full min-w-[760px] text-left"><thead className="bg-[#f9fbff] text-[10px] font-bold uppercase tracking-[.12em] text-[#5d768f]"><tr><th className="px-6 py-3">Ex-dividend</th><th className="px-4 py-3">Pay date</th><th className="px-4 py-3">Type</th><th className="px-4 py-3">Frequency</th><th className="px-4 py-3 text-right">Reported</th><th className="px-6 py-3 text-right">Split-adjusted</th></tr></thead><tbody>{displayedDividends.map((event) => <tr key={`${event.exDividendDate}-${event.cashAmount}`} className="border-t border-[#ecefec] hover:bg-[#fafcff] dark:hover:bg-[#172b40]"><td className="px-6 py-4 text-sm font-semibold">{event.exDividendDate}</td><td className="px-4 py-4 text-sm text-[#506981]">{event.payDate ?? '—'}</td><td className="px-4 py-4 text-sm">{event.dividendType ? humanize(event.dividendType.toLowerCase()) : 'Cash'}</td><td className="px-4 py-4 text-sm text-[#506981]">{frequencyLabel(event.frequency)}</td><td className="px-4 py-4 text-right text-sm tabular-nums text-[#506981]">{formatMoney(event.cashAmount, event.currency)}</td><td className="px-6 py-4 text-right text-sm font-bold tabular-nums">{formatMoney(event.splitAdjustedCashAmount ?? event.cashAmount, event.currency)}</td></tr>)}</tbody></table></div></> : <div className="px-6 py-10 text-center"><p className="font-semibold">No dividend events found</p><p className="mt-1 text-sm text-[#556c84]">This instrument may not pay a dividend, or its history has not been synchronized.</p></div>}
     </section>}
 
     {activeTab === 'splits' && <section className="surface-card surface-card--flush">
@@ -242,13 +278,52 @@ function PriceHistoryChart({ data }: { data: DailyQuote[] }) {
         {[0, .25, .5, .75, 1].map((ratio) => { const value = low + range * ratio; const lineY = y(value); return <g key={ratio}><line x1={left} x2={width - right} y1={lineY} y2={lineY} className="stroke-[#dce8f4] dark:stroke-[#354b63]" strokeDasharray="3 5" /><text x={left - 10} y={lineY + 4} textAnchor="end" className="fill-[#526b84] text-[10px]">{new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 0 }).format(value)}</text></g> })}
         <path d={areaPath} fill="url(#price-area)" />
         <path d={path} fill="none" className="stroke-[#1976a7] dark:stroke-[#55a9d2]" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-        {tickIndexes.map((index) => <text key={index} x={x(index)} y={height - 15} textAnchor={index === 0 ? 'start' : index === data.length - 1 ? 'end' : 'middle'} className="fill-[#536c85] text-[10px]">{new Intl.DateTimeFormat('en-US', { month: 'short', year: '2-digit', timeZone: 'UTC' }).format(new Date(`${data[index].date}T00:00:00Z`))}</text>)}
+        {tickIndexes.map((index) => <text key={index} x={x(index)} y={height - 15} textAnchor={index === 0 ? 'start' : index === data.length - 1 ? 'end' : 'middle'} className="fill-[#536c85] text-[10px]">{new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${data[index].date}T00:00:00Z`))}</text>)}
         {hoveredIndex !== null && <g><line x1={x(hoveredIndex)} x2={x(hoveredIndex)} y1={top} y2={top + plotHeight} className="stroke-[#7291ad]" strokeDasharray="4 4" /><circle cx={x(hoveredIndex)} cy={y(data[hoveredIndex].close)} r="5" className="fill-[#1976a7] stroke-white dark:stroke-[#132235]" strokeWidth="2" /></g>}
         {data.map((quote, index) => <rect key={quote.date} x={Math.max(left, x(index) - plotWidth / data.length / 2)} y={top} width={Math.max(plotWidth / data.length, 1)} height={plotHeight} fill="transparent" onMouseEnter={() => setHoveredIndex(index)} />)}
       </svg>
       {hoveredIndex !== null && (() => { const point = data[hoveredIndex]; const position = x(hoveredIndex) / width * 100; return <div className="pointer-events-none absolute top-3 z-20 w-52 -translate-x-1/2 rounded-xl bg-[#0d243d] p-3 text-white shadow-[0_12px_32px_rgba(20,35,29,.3)]" style={{ left: `${Math.max(12, Math.min(position, 88))}%` }}><p className="border-b border-white/15 pb-2 text-xs font-bold">{point.date}</p><div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 text-[11px]"><span className="text-white/60">Open</span><strong className="text-right">{formatMoney(point.open, currency)}</strong><span className="text-white/60">High</span><strong className="text-right">{formatMoney(point.high, currency)}</strong><span className="text-white/60">Low</span><strong className="text-right">{formatMoney(point.low, currency)}</strong><span className="text-white/60">Close</span><strong className="text-right">{formatMoney(point.close, currency)}</strong><span className="text-white/60">Volume</span><strong className="text-right">{compactVolume(point.volume)}</strong></div></div> })()}
     </div>
   </div>
+}
+
+function AnnualDividendYieldChart({ data, currency }: { data: DividendYieldPoint[], currency: string }) {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
+  const width = Math.max(720, data.length * 76 + 90)
+  const height = 260
+  const left = 58
+  const right = 68
+  const top = 22
+  const bottom = 44
+  const plotWidth = width - left - right
+  const plotHeight = height - top - bottom
+  const maximum = Math.max(...data.map((point) => point.yieldPercent), 1)
+  const minimumPrice = Math.min(...data.map((point) => point.closingPrice))
+  const maximumPrice = Math.max(...data.map((point) => point.closingPrice))
+  const pricePadding = Math.max((maximumPrice - minimumPrice) * .08, maximumPrice * .02, .01)
+  const priceLow = Math.max(0, minimumPrice - pricePadding)
+  const priceHigh = maximumPrice + pricePadding
+  const priceRange = priceHigh - priceLow || 1
+  const slotWidth = plotWidth / data.length
+  const baseline = top + plotHeight
+  const x = (index: number) => left + slotWidth * index + slotWidth / 2
+  const y = (value: number) => baseline - value / maximum * plotHeight
+  const priceY = (value: number) => top + (priceHigh - value) / priceRange * plotHeight
+  const path = data.map((point, index) => `${index ? 'L' : 'M'} ${x(index).toFixed(2)} ${y(point.yieldPercent).toFixed(2)}`).join(' ')
+  const pricePath = data.map((point, index) => `${index ? 'L' : 'M'} ${x(index).toFixed(2)} ${priceY(point.closingPrice).toFixed(2)}`).join(' ')
+  const compactPrice = (value: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency, notation: 'compact', maximumFractionDigits: 1 }).format(value)
+
+  return <section className="border-t border-[#dbe6f2] px-4 py-6 sm:px-6">
+    <div className="mb-4 flex flex-wrap items-end justify-between gap-3"><div><h3 className="text-base font-semibold">Annual dividend yield history</h3><p className="mt-1 text-xs text-[#607991]">Trailing-12-month split-adjusted dividends ÷ the final available closing price for each year</p></div><div className="flex flex-wrap gap-4 text-[11px] font-semibold text-[#506a84]"><span className="flex items-center gap-2"><i className="h-0.5 w-5 bg-emerald-500" />TTM yield</span><span className="flex items-center gap-2"><i className="h-0.5 w-5 bg-[#368bc0]" />Closing price</span></div></div>
+    <div className="overflow-x-auto"><div className="relative" style={{ width: `${width}px`, height: `${height}px` }} onMouseLeave={() => setHoveredIndex(null)}><svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Annual dividend yield history" className="max-w-none">
+      {[0, .25, .5, .75, 1].map((ratio) => { const value = maximum * ratio; const y = baseline - plotHeight * ratio; return <g key={ratio}><line x1={left} x2={width - right} y1={y} y2={y} className="stroke-[#dce8f4] dark:stroke-[#354b63]" strokeDasharray={ratio ? '3 4' : undefined} /><text x={left - 8} y={y + 4} textAnchor="end" className="fill-[#526b84] text-[10px]">{value.toFixed(2)}%</text></g> })}
+      {[0, .5, 1].map((ratio) => { const value = priceLow + priceRange * ratio; const axisY = priceY(value); return <text key={`price-${ratio}`} x={width - right + 9} y={axisY + 4} textAnchor="start" className="fill-[#368bc0] text-[10px]">{compactPrice(value)}</text> })}
+      <path d={path} fill="none" className="stroke-emerald-500 dark:stroke-emerald-400" strokeWidth="2.75" strokeLinejoin="round" strokeLinecap="round" />
+      <path d={pricePath} fill="none" className="stroke-[#368bc0] dark:stroke-[#62b1de]" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+      {data.map((point, index) => <g key={point.year}>{hoveredIndex === index && <line x1={x(index)} x2={x(index)} y1={top} y2={baseline} className="stroke-[#7890a6]" strokeDasharray="4 4" />}<circle cx={x(index)} cy={y(point.yieldPercent)} r={hoveredIndex === index ? 6 : 4} className={`fill-emerald-500 stroke-white transition-all dark:fill-emerald-400 dark:stroke-[#132235] ${hoveredIndex !== null && hoveredIndex !== index ? 'opacity-55' : ''}`} strokeWidth="2" /><circle cx={x(index)} cy={priceY(point.closingPrice)} r={hoveredIndex === index ? 5 : 3.5} className={`fill-[#368bc0] stroke-white transition-all dark:fill-[#62b1de] dark:stroke-[#132235] ${hoveredIndex !== null && hoveredIndex !== index ? 'opacity-55' : ''}`} strokeWidth="2" /><text x={x(index)} y={baseline + 20} textAnchor="middle" className="fill-[#536c85] text-[10px]">{point.label}</text><rect x={left + slotWidth * index} y={top} width={slotWidth} height={plotHeight} fill="transparent" onMouseEnter={() => setHoveredIndex(index)} /></g>)}
+    </svg>{hoveredIndex !== null && (() => { const point = data[hoveredIndex]; const center = left + slotWidth * hoveredIndex + slotWidth / 2; const tooltipLeft = Math.max(8, Math.min(center - 96, width - 200)); return <div className="pointer-events-none absolute top-7 z-20 w-48 rounded-xl border border-[#a9bfd2]/70 bg-white/65 p-3 text-[#17324a] shadow-[0_8px_22px_rgba(35,62,84,.12)] backdrop-blur-md dark:border-[#6b7f92]/60 dark:bg-[#1a2d40]/60 dark:text-[#f2f7fb]" style={{ left: `${tooltipLeft}px` }}><p className="border-b border-[#bfcfdd]/70 pb-2 text-xs font-bold dark:border-[#728598]/55">{point.label} · {point.asOfDate}</p><div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-2 text-[11px]"><span className="text-[#526d85] dark:text-[#c5d2dd]">TTM yield</span><strong className="text-right text-emerald-700 dark:text-emerald-300">{point.yieldPercent.toFixed(2)}%</strong><span className="text-[#526d85] dark:text-[#c5d2dd]">TTM dividends</span><strong className="text-right">{formatMoney(point.dividends, currency)}</strong><span className="text-[#526d85] dark:text-[#c5d2dd]">Closing price</span><strong className="text-right">{formatMoney(point.closingPrice, currency)}</strong></div></div> })()}</div></div>
+    <p className="mt-2 text-[11px] text-[#5d768f]">Each point uses dividends with ex-dates in the 12 months ending on the displayed closing-price date.</p>
+  </section>
 }
 
 function DividendHistoryChart({ data, currency, period }: { data: DividendChartPoint[], currency: string, period: DividendPeriod }) {
