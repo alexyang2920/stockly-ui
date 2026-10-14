@@ -1,8 +1,6 @@
 import type { AuthResponse } from '../types/auth'
-import type { DividendEvent, FinancialFact, Instrument, InstrumentQuote, StockSplitEvent } from '../types/instrument'
+import type { DailyQuote, DividendEvent, Instrument, InstrumentQuote, StockSplitEvent } from '../types/instrument'
 import { apiRequest } from './client'
-
-export type FinancialPeriod = 'ANNUAL' | 'QUARTERLY'
 
 export function searchInstruments(query: string, signal?: AbortSignal) {
   return apiRequest<Instrument[]>(`/instruments?query=${encodeURIComponent(query)}`, { signal })
@@ -12,16 +10,13 @@ export function getInstrument(symbol: string, signal?: AbortSignal) {
   return apiRequest<Instrument>(`/instruments/${encodeURIComponent(symbol)}`, { signal })
 }
 
-export function getFinancials(symbol: string, period: FinancialPeriod, signal?: AbortSignal) {
-  return apiRequest<FinancialFact[]>(`/instruments/${encodeURIComponent(symbol)}/financials?period=${period}`, { signal })
-}
-
-export function syncFinancials(auth: AuthResponse, symbol: string) {
-  return apiRequest<{ symbol: string, factsImported: number }>(`/instruments/${encodeURIComponent(symbol)}/financials/sync`, { method: 'POST', auth })
-}
-
 export function getQuote(symbol: string, signal?: AbortSignal) {
   return apiRequest<InstrumentQuote>(`/instruments/${encodeURIComponent(symbol)}/quote`, { signal })
+}
+
+export function getQuoteHistory(symbol: string, from: string, to: string, signal?: AbortSignal) {
+  const parameters = new URLSearchParams({ from, to })
+  return apiRequest<DailyQuote[]>(`/instruments/${encodeURIComponent(symbol)}/quotes/history?${parameters}`, { signal })
 }
 
 export function syncQuote(auth: AuthResponse, symbol: string) {

@@ -1,75 +1,31 @@
 import { useEffect, useMemo, useState } from 'react'
 import { apiErrorMessage } from '../api/client'
-import { getDividends, getInstrument, getQuote, getSplits } from '../api/instruments'
+import { getDividends, getInstrument, getQuote, getQuoteHistory, getSplits } from '../api/instruments'
 import InstrumentMark from '../components/InstrumentMark'
-import type { DividendEvent, Instrument, InstrumentQuote, StockSplitEvent } from '../types/instrument'
+import type { DailyQuote, DividendEvent, Instrument, InstrumentQuote, StockSplitEvent } from '../types/instrument'
 
 type DividendPeriod = 'ANNUAL' | 'QUARTERLY' | 'MONTHLY'
 type DetailTab = 'dividends' | 'splits'
+type PriceRange = '1M' | '3M' | '1Y' | '5Y' | 'MAX'
 type DividendChartPoint = { key: string, label: string, year: number, quarter?: number, month?: number, amount: number, change: number | null }
 
 type InstrumentPageProps = {
   symbol: string
 }
 
-/* Retained in the backend for a future dividend-health summary. The full
-   financial-statement UI is deliberately not part of the dividend-focused app. */
-/* const metricLabels: Record<string, string> = {
-  REVENUE: 'Revenue', COST_OF_REVENUE: 'Cost of revenue', TOTAL_COSTS_AND_EXPENSES: 'Total costs & expenses', GROSS_PROFIT: 'Gross profit', OPERATING_EXPENSES: 'Operating expenses', OPERATING_INCOME: 'Operating income', INTEREST_EXPENSE: 'Interest expense', INCOME_BEFORE_TAX: 'Income before tax', INCOME_TAX_EXPENSE: 'Income tax expense', NET_INCOME: 'Net income', DILUTED_EPS: 'Diluted EPS', CASH_AND_EQUIVALENTS: 'Cash & equivalents', CURRENT_ASSETS: 'Current assets', TOTAL_ASSETS: 'Total assets', CURRENT_LIABILITIES: 'Current liabilities', TOTAL_LIABILITIES: 'Total liabilities', CURRENT_DEBT: 'Current debt', LONG_TERM_DEBT: 'Long-term debt', TOTAL_DEBT: 'Total debt', SHAREHOLDERS_EQUITY: 'Book value (shareholders’ equity)', OPERATING_CASH_FLOW: 'Operating cash flow', CAPITAL_EXPENDITURES: 'Capital expenditures', FREE_CASH_FLOW: 'Free cash flow',
-}
-
-const metricDescriptions: Record<string, string> = {
-  REVENUE: 'Sales generated from the company’s primary business activities before costs and expenses.',
-  COST_OF_REVENUE: 'Direct costs required to produce and deliver the goods or services sold.',
-  TOTAL_COSTS_AND_EXPENSES: 'All operating costs and expenses reported by the company, including direct costs and other operating expenses.',
-  GROSS_PROFIT: 'Revenue remaining after subtracting cost of revenue.',
-  OPERATING_EXPENSES: 'Costs of running the business outside the direct cost of producing its goods or services.',
-  OPERATING_INCOME: 'Profit from core operations after cost of revenue and operating expenses.',
-  INTEREST_EXPENSE: 'Cost incurred on borrowed money during the reporting period.',
-  INCOME_BEFORE_TAX: 'Profit from continuing operations before income taxes are applied.',
-  INCOME_TAX_EXPENSE: 'Income taxes recognized for the reporting period, including current and deferred amounts.',
-  NET_INCOME: 'Profit remaining after operating costs, interest, taxes, and other expenses.',
-  DILUTED_EPS: 'Net income attributable to each share after including the effect of potentially dilutive securities.',
-  CASH_AND_EQUIVALENTS: 'Highly liquid cash and short-term investments available at the period end.',
-  CURRENT_ASSETS: 'Assets expected to be converted to cash, sold, or used within roughly one year.',
-  TOTAL_ASSETS: 'Total economic resources controlled by the company at the period end.',
-  CURRENT_LIABILITIES: 'Obligations expected to be settled within roughly one year.',
-  TOTAL_LIABILITIES: 'All financial obligations owed by the company at the period end.',
-  CURRENT_DEBT: 'Interest-bearing debt due within roughly one year, based on the company’s available SEC debt disclosure.',
-  LONG_TERM_DEBT: 'Borrowings and debt obligations generally due more than one year from the period end.',
-  TOTAL_DEBT: 'Combined current and noncurrent interest-bearing debt. FolioNest uses a reported SEC total when available, otherwise it adds current and long-term debt.',
-  SHAREHOLDERS_EQUITY: 'The company’s total book value: the residual value attributable to shareholders after subtracting liabilities from assets.',
-  OPERATING_CASH_FLOW: 'Cash generated or consumed by the company’s normal business operations.',
-  CAPITAL_EXPENDITURES: 'Cash spent to acquire or improve property, equipment, and other long-lived operating assets.',
-  FREE_CASH_FLOW: 'Cash remaining after capital expenditures, calculated as operating cash flow minus capital expenditures.',
-}
-
-const statementGroups = [
-  { key: 'INCOME_STATEMENT', title: 'Income statement', description: 'Revenue, profitability, and earnings', metrics: ['REVENUE', 'COST_OF_REVENUE', 'TOTAL_COSTS_AND_EXPENSES', 'GROSS_PROFIT', 'OPERATING_EXPENSES', 'OPERATING_INCOME', 'INTEREST_EXPENSE', 'INCOME_BEFORE_TAX', 'INCOME_TAX_EXPENSE', 'NET_INCOME', 'DILUTED_EPS'] },
-  { key: 'BALANCE_SHEET', title: 'Balance sheet', description: 'Assets, liabilities, debt, and book value', metrics: ['CASH_AND_EQUIVALENTS', 'CURRENT_ASSETS', 'TOTAL_ASSETS', 'CURRENT_LIABILITIES', 'TOTAL_LIABILITIES', 'CURRENT_DEBT', 'LONG_TERM_DEBT', 'TOTAL_DEBT', 'SHAREHOLDERS_EQUITY'] },
-  { key: 'CASH_FLOW', title: 'Cash flow statement', description: 'Operating cash generation and capital allocation', metrics: ['OPERATING_CASH_FLOW', 'CAPITAL_EXPENDITURES', 'FREE_CASH_FLOW'] },
-] as const
-
-*/
 function humanize(value: string) {
   return value.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (character) => character.toUpperCase())
 }
-
-/* function formatFact(value: number, unit: string) {
-  if (unit === 'USD/shares') return `$${value.toFixed(2)}`
-  if (unit === 'shares') return new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(value)
-  if (unit === 'USD') {
-    const billions = Math.abs(value) >= 1_000_000_000 && Math.abs(value) < 1_000_000_000_000
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', notation: 'compact', minimumFractionDigits: billions ? 2 : undefined, maximumFractionDigits: billions ? 2 : 1 }).format(value)
-  }
-  return new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 2 }).format(value)
-} */
 
 function InstrumentPage({ symbol }: InstrumentPageProps) {
   const [instrument, setInstrument] = useState<Instrument | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [quote, setQuote] = useState<InstrumentQuote | null>(null)
+  const [quoteHistory, setQuoteHistory] = useState<DailyQuote[]>([])
+  const [priceRange, setPriceRange] = useState<PriceRange>('1Y')
+  const [priceHistoryLoading, setPriceHistoryLoading] = useState(true)
+  const [priceHistoryError, setPriceHistoryError] = useState('')
   const [dividends, setDividends] = useState<DividendEvent[]>([])
   const [dividendPeriod, setDividendPeriod] = useState<DividendPeriod>('QUARTERLY')
   const [splits, setSplits] = useState<StockSplitEvent[]>([])
@@ -90,6 +46,28 @@ function InstrumentPage({ symbol }: InstrumentPageProps) {
 
   useEffect(() => {
     const controller = new AbortController()
+    const to = new Date()
+    const from = new Date(to)
+    if (priceRange === '1M') from.setMonth(from.getMonth() - 1)
+    else if (priceRange === '3M') from.setMonth(from.getMonth() - 3)
+    else if (priceRange === '1Y') from.setFullYear(from.getFullYear() - 1)
+    else if (priceRange === '5Y') from.setFullYear(from.getFullYear() - 5)
+    else from.setFullYear(from.getFullYear() - 20)
+    const dateKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+    setPriceHistoryLoading(true)
+    setPriceHistoryError('')
+    getQuoteHistory(symbol, dateKey(from), dateKey(to), controller.signal)
+      .then(setQuoteHistory)
+      .catch((reason: unknown) => {
+        if (reason instanceof DOMException && reason.name === 'AbortError') return
+        setPriceHistoryError(apiErrorMessage(reason, 'Unable to load price history.'))
+      })
+      .finally(() => { if (!controller.signal.aborted) setPriceHistoryLoading(false) })
+    return () => controller.abort()
+  }, [symbol, priceRange])
+
+  useEffect(() => {
+    const controller = new AbortController()
     Promise.allSettled([getQuote(symbol, controller.signal), getDividends(symbol, controller.signal), getSplits(symbol, controller.signal)])
       .then(([quoteResult, dividendResult, splitResult]) => {
         if (quoteResult.status === 'fulfilled') setQuote(quoteResult.value)
@@ -99,57 +77,6 @@ function InstrumentPage({ symbol }: InstrumentPageProps) {
       .finally(() => { if (!controller.signal.aborted) setMarketLoading(false) })
     return () => controller.abort()
   }, [symbol])
-
-  /* const financialTable = useMemo(() => {
-    const periodMap = new Map<string, FinancialPeriodColumn>()
-    const factMap = new Map<string, Map<string, FinancialFact>>()
-
-    for (const fact of facts) {
-      const periodKey = fact.periodEnd
-      if (!periodMap.has(periodKey)) {
-        periodMap.set(periodKey, {
-          key: periodKey,
-          label: loadedPeriod === 'ANNUAL' ? String(fact.fiscalYear) : `${fact.fiscalPeriod} ${fact.fiscalYear}`,
-          periodEnd: fact.periodEnd,
-          fiscalYear: fact.fiscalYear,
-        })
-      }
-      const metricFacts = factMap.get(fact.metric) ?? new Map<string, FinancialFact>()
-      const existing = metricFacts.get(periodKey)
-      if (!existing || fact.filedAt > existing.filedAt) metricFacts.set(periodKey, fact)
-      factMap.set(fact.metric, metricFacts)
-    }
-
-    const operatingCashFlow = factMap.get('OPERATING_CASH_FLOW')
-    const capitalExpenditures = factMap.get('CAPITAL_EXPENDITURES')
-    if (operatingCashFlow && capitalExpenditures) {
-      const freeCashFlow = new Map<string, FinancialFact>()
-      operatingCashFlow.forEach((operatingFact, periodKey) => {
-        const capitalFact = capitalExpenditures.get(periodKey)
-        if (!capitalFact) return
-        freeCashFlow.set(periodKey, {
-          ...operatingFact,
-          metric: 'FREE_CASH_FLOW',
-          statementType: 'CASH_FLOW',
-          value: operatingFact.value - capitalFact.value,
-          filedAt: operatingFact.filedAt > capitalFact.filedAt ? operatingFact.filedAt : capitalFact.filedAt,
-        })
-      })
-      if (freeCashFlow.size > 0) factMap.set('FREE_CASH_FLOW', freeCashFlow)
-    }
-
-    const allPeriods = [...periodMap.values()].sort((left, right) => right.periodEnd.localeCompare(left.periodEnd))
-    const latestFiscalYear = Math.max(...allPeriods.map((item) => item.fiscalYear))
-    const periods = allPeriods.filter((item) => item.fiscalYear >= latestFiscalYear - 9)
-    const groups = statementGroups.map((group) => {
-      const configured = group.metrics.filter((metric) => factMap.has(metric))
-      const additional = [...factMap.keys()].filter((metric) => !group.metrics.includes(metric as never)
-        && facts.some((fact) => fact.metric === metric && fact.statementType === group.key))
-        .sort((left, right) => (metricLabels[left] ?? left).localeCompare(metricLabels[right] ?? right))
-      return { ...group, metrics: [...configured, ...additional] }
-    }).filter((group) => group.metrics.length > 0)
-    return { periods, groups, metricCount: groups.reduce((count, group) => count + group.metrics.length, 0), factMap }
-  }, [facts, loadedPeriod]) */
 
   const paysMonthlyDividends = dividends.some((event) => event.frequency === 12)
   const effectiveDividendPeriod: DividendPeriod = dividendPeriod === 'ANNUAL' ? 'ANNUAL' : paysMonthlyDividends ? 'MONTHLY' : 'QUARTERLY'
@@ -223,6 +150,11 @@ function InstrumentPage({ symbol }: InstrumentPageProps) {
       <div className="mt-7 grid gap-3 border-t border-[#e8f0fa] pt-6 sm:grid-cols-3"><Detail label="Exchange" value={instrument.exchange} /><Detail label="Sector" value={instrument.instrumentType === 'ETF' ? 'Funds' : instrument.sector || 'Not classified'} /><Detail label="SEC CIK" value={instrument.cik || 'Not available'} /></div>
     </section>
 
+    <section className="surface-card surface-card--flush mt-6">
+      <div className="flex flex-col justify-between gap-4 border-b border-[#dbe6f2] p-5 sm:flex-row sm:items-center md:px-7"><div><h2 className="text-xl font-semibold tracking-[-.025em]">Daily price history</h2><p className="mt-1 text-sm text-[#556c84]">Stored end-of-day OHLC prices and trading volume</p></div><Segmented values={['1M', '3M', '1Y', '5Y', 'MAX']} active={priceRange} onChange={(value) => setPriceRange(value as PriceRange)} /></div>
+      {priceHistoryLoading ? <div className="h-80 animate-pulse bg-[#f4f8fd]" /> : priceHistoryError ? <div className="px-6 py-10 text-center"><p className="font-semibold text-rose-700">Price history unavailable</p><p className="mt-1 text-sm text-[#556c84]">{priceHistoryError}</p></div> : quoteHistory.length ? <PriceHistoryChart data={quoteHistory} /> : <div className="px-6 py-10 text-center"><p className="font-semibold">No daily prices found</p><p className="mt-1 text-sm text-[#556c84]">Historical prices for this range have not been synchronized.</p></div>}
+    </section>
+
       <nav className="mb-6 mt-6 flex overflow-x-auto border-b border-[#c4d5e8]" aria-label="Instrument details">
         {([['dividends', 'Dividend history'], ['splits', 'Split history']] as const).map(([key, label]) => <button key={key} onClick={() => setActiveTab(key)} className={`relative min-w-max px-4 py-4 text-sm font-bold transition-colors after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:transition ${activeTab === key ? 'text-[#0b3b66] after:bg-[#0b5b9e] dark:text-[#bddcff]' : 'text-[#566f88] after:bg-transparent hover:bg-[#f4f8fd] hover:text-[#0b5b9e]'}`} aria-current={activeTab === key ? 'page' : undefined}>{label}</button>)}
       </nav>
@@ -238,6 +170,53 @@ function InstrumentPage({ symbol }: InstrumentPageProps) {
     </section>}
 
   </main>
+}
+
+function PriceHistoryChart({ data }: { data: DailyQuote[] }) {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
+  const width = 1000
+  const height = 340
+  const left = 72
+  const right = 24
+  const top = 24
+  const bottom = 48
+  const plotWidth = width - left - right
+  const plotHeight = height - top - bottom
+  const prices = data.flatMap((quote) => [quote.low, quote.high])
+  const minimum = Math.min(...prices)
+  const maximum = Math.max(...prices)
+  const padding = Math.max((maximum - minimum) * .08, maximum * .005, .01)
+  const low = minimum - padding
+  const high = maximum + padding
+  const range = high - low || 1
+  const x = (index: number) => left + index / Math.max(data.length - 1, 1) * plotWidth
+  const y = (value: number) => top + (high - value) / range * plotHeight
+  const path = data.map((quote, index) => `${index ? 'L' : 'M'} ${x(index).toFixed(2)} ${y(quote.close).toFixed(2)}`).join(' ')
+  const areaPath = `${path} L ${x(data.length - 1)} ${top + plotHeight} L ${left} ${top + plotHeight} Z`
+  const first = data[0]
+  const last = data[data.length - 1]
+  const change = last.close - first.close
+  const changePercent = first.close ? change / first.close * 100 : 0
+  const positive = change >= 0
+  const currency = last.currency || 'USD'
+  const compactVolume = (value: number | null) => value == null ? '—' : new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 2 }).format(value)
+  const tickIndexes = [...new Set([0, Math.round((data.length - 1) / 4), Math.round((data.length - 1) / 2), Math.round((data.length - 1) * .75), data.length - 1])]
+
+  return <div className="p-5 md:p-7">
+    <div className="mb-5 flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[.12em] text-[#607991]">Closing price</p><div className="mt-1 flex flex-wrap items-baseline gap-3"><strong className="text-3xl tracking-[-.04em]">{formatMoney(last.close, currency)}</strong><span className={`text-sm font-bold ${positive ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>{positive ? '+' : ''}{formatMoney(change, currency)} · {positive ? '+' : ''}{changePercent.toFixed(2)}%</span></div></div><p className="text-xs text-[#607991]">{first.date} – {last.date} · {data.length.toLocaleString()} trading days</p></div>
+    <div className="relative w-full" onMouseLeave={() => setHoveredIndex(null)}>
+      <svg viewBox={`0 0 ${width} ${height}`} className="block w-full min-w-[700px]" role="img" aria-label={`Daily closing price history from ${first.date} to ${last.date}`}>
+        <defs><linearGradient id="price-area" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#3b91bc" stopOpacity=".24" /><stop offset="100%" stopColor="#3b91bc" stopOpacity="0" /></linearGradient></defs>
+        {[0, .25, .5, .75, 1].map((ratio) => { const value = low + range * ratio; const lineY = y(value); return <g key={ratio}><line x1={left} x2={width - right} y1={lineY} y2={lineY} className="stroke-[#dce8f4] dark:stroke-[#354b63]" strokeDasharray="3 5" /><text x={left - 10} y={lineY + 4} textAnchor="end" className="fill-[#526b84] text-[10px]">{new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 0 }).format(value)}</text></g> })}
+        <path d={areaPath} fill="url(#price-area)" />
+        <path d={path} fill="none" className="stroke-[#1976a7] dark:stroke-[#55a9d2]" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+        {tickIndexes.map((index) => <text key={index} x={x(index)} y={height - 15} textAnchor={index === 0 ? 'start' : index === data.length - 1 ? 'end' : 'middle'} className="fill-[#536c85] text-[10px]">{new Intl.DateTimeFormat('en-US', { month: 'short', year: '2-digit', timeZone: 'UTC' }).format(new Date(`${data[index].date}T00:00:00Z`))}</text>)}
+        {hoveredIndex !== null && <g><line x1={x(hoveredIndex)} x2={x(hoveredIndex)} y1={top} y2={top + plotHeight} className="stroke-[#7291ad]" strokeDasharray="4 4" /><circle cx={x(hoveredIndex)} cy={y(data[hoveredIndex].close)} r="5" className="fill-[#1976a7] stroke-white dark:stroke-[#132235]" strokeWidth="2" /></g>}
+        {data.map((quote, index) => <rect key={quote.date} x={Math.max(left, x(index) - plotWidth / data.length / 2)} y={top} width={Math.max(plotWidth / data.length, 1)} height={plotHeight} fill="transparent" onMouseEnter={() => setHoveredIndex(index)} />)}
+      </svg>
+      {hoveredIndex !== null && (() => { const point = data[hoveredIndex]; const position = x(hoveredIndex) / width * 100; return <div className="pointer-events-none absolute top-3 z-20 w-52 -translate-x-1/2 rounded-xl bg-[#0d243d] p-3 text-white shadow-[0_12px_32px_rgba(20,35,29,.3)]" style={{ left: `${Math.max(12, Math.min(position, 88))}%` }}><p className="border-b border-white/15 pb-2 text-xs font-bold">{point.date}</p><div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 text-[11px]"><span className="text-white/60">Open</span><strong className="text-right">{formatMoney(point.open, currency)}</strong><span className="text-white/60">High</span><strong className="text-right">{formatMoney(point.high, currency)}</strong><span className="text-white/60">Low</span><strong className="text-right">{formatMoney(point.low, currency)}</strong><span className="text-white/60">Close</span><strong className="text-right">{formatMoney(point.close, currency)}</strong><span className="text-white/60">Volume</span><strong className="text-right">{compactVolume(point.volume)}</strong></div></div> })()}
+    </div>
+  </div>
 }
 
 function DividendHistoryChart({ data, currency, period }: { data: DividendChartPoint[], currency: string, period: DividendPeriod }) {
@@ -287,65 +266,5 @@ function QuoteDetail({ label, value, emphasis = false }: { label: string, value:
 function Segmented({ values, active, onChange }: { values: string[], active: string, onChange: (value: string) => void }) {
   return <div className="flex w-full rounded-xl bg-[#e6f0fb] p-1 sm:w-auto">{values.map((value) => <button key={value} onClick={() => onChange(value)} className={`flex-1 rounded-lg px-3 py-2 text-[11px] font-bold transition sm:flex-none ${active === value ? 'bg-white text-[#0b3b66] shadow-sm' : 'text-[#526d87]'}`}>{value}</button>)}</div>
 }
-
-/* function FinancialStatementTable({ title, description, metrics, periods, factMap }: { title: string, description: string, metrics: string[], periods: FinancialPeriodColumn[], factMap: Map<string, Map<string, FinancialFact>> }) {
-  const [expandedMetrics, setExpandedMetrics] = useState<Set<string>>(() => new Set())
-  const toggleMetric = (metric: string) => setExpandedMetrics((current) => {
-    const next = new Set(current)
-    if (next.has(metric)) next.delete(metric)
-    else next.add(metric)
-    return next
-  })
-  return <section className="border-b border-[#dbe6f2] last:border-b-0"><div className="bg-[#f4f8fd] px-7 py-4"><h3 className="text-sm font-bold tracking-[-.01em]">{title}</h3><p className="mt-1 text-xs text-[#556c84]">{description}</p></div><div className="overflow-x-auto"><table className="text-left" style={{ minWidth: `${240 + periods.length * 132}px`, width: '100%' }}><thead className="bg-[#f9fbff] text-[10px] uppercase tracking-[.1em] text-[#5d768f]"><tr><th className="sticky left-0 z-10 min-w-60 border-r border-[#d9e5f1] bg-[#f9fbff] px-7 py-3 font-bold">Metric</th>{periods.map((item) => <th key={item.key} className="min-w-33 px-4 py-3 text-right font-bold"><span className="block text-[#59675f]">{item.label}</span><span className="mt-1 block text-[9px] font-medium normal-case tracking-normal text-[#9aa39d]">{item.periodEnd}</span></th>)}</tr></thead><tbody>{metrics.map((metric, rowIndex) => { const factsByPeriod = factMap.get(metric); const expanded = expandedMetrics.has(metric); return [<tr key={`${metric}-value`} className={`border-t border-[#ecefec] hover:bg-[#fafcff] dark:hover:bg-[#172b40] ${expanded ? 'bg-[#fafcff] dark:bg-[#172b40]' : ''}`}><FinancialMetricCell label={metricLabels[metric] ?? humanize(metric)} description={metricDescriptions[metric] ?? `A reported value for ${humanize(metric).toLowerCase()} from the company’s SEC filing.`} periods={periods} factsByPeriod={factsByPeriod} rowIndex={rowIndex} rowCount={metrics.length} expanded={expanded} onToggleChanges={() => toggleMetric(metric)} />{periods.map((item) => { const fact = factsByPeriod?.get(item.key); return <td key={item.key} className="px-4 py-4 text-right text-sm font-bold tabular-nums whitespace-nowrap">{fact ? formatFact(fact.value, fact.unit) : <span className="font-normal text-[#b0b7b2]">—</span>}</td> })}</tr>, expanded && <FinancialChangeRow key={`${metric}-change`} periods={periods} factsByPeriod={factsByPeriod} />] })}</tbody></table></div></section>
-}
-
-function FinancialChangeRow({ periods, factsByPeriod }: { periods: FinancialPeriodColumn[], factsByPeriod?: Map<string, FinancialFact> }) {
-  const facts = [...(factsByPeriod?.values() ?? [])]
-  return <tr className="border-t border-[#e5ebe6] bg-[#eff5fc] dark:bg-[#101a15]"><th className="sticky left-0 z-10 border-r border-[#dce5de] bg-[#eff5fc] px-7 py-3 text-[10px] font-bold uppercase tracking-[.12em] text-[#526d87] dark:bg-[#101a15]">Year-over-year</th>{periods.map((period) => { const current = factsByPeriod?.get(period.key); const prior = current && facts.find((fact) => fact.fiscalYear === current.fiscalYear - 1 && fact.periodType === current.periodType && fact.fiscalPeriod === current.fiscalPeriod); const change = current && prior && prior.value !== 0 ? (current.value - prior.value) / Math.abs(prior.value) * 100 : null; return <td key={period.key} className={`px-4 py-3 text-right text-xs font-bold tabular-nums whitespace-nowrap ${change === null ? 'text-[#a2aba5]' : change >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>{change === null ? '—' : `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`}</td> })}</tr>
-}
-
-function FinancialMetricCell({ label, description, periods, factsByPeriod, rowIndex, rowCount, expanded, onToggleChanges }: { label: string, description: string, periods: FinancialPeriodColumn[], factsByPeriod?: Map<string, FinancialFact>, rowIndex: number, rowCount: number, expanded: boolean, onToggleChanges: () => void }) {
-  const [trendOpen, setTrendOpen] = useState(false)
-  const [hoveredBar, setHoveredBar] = useState<number | null>(null)
-  const available = periods.flatMap((item) => {
-    const fact = factsByPeriod?.get(item.key)
-    return fact ? [{ period: item, fact }] : []
-  })
-  const latest = available[0]
-  const previous = available[1]
-  const change = latest && previous ? latest.fact.value - previous.fact.value : null
-  const percentChange = change !== null && previous.fact.value !== 0 ? change / Math.abs(previous.fact.value) * 100 : null
-  const positive = change === null || change >= 0
-  const chartItems = [...available].reverse()
-  const chartValues = chartItems.map((item) => item.fact.value)
-  const minimum = Math.min(0, ...chartValues)
-  const maximum = Math.max(0, ...chartValues)
-  const range = maximum - minimum || 1
-  const baseline = 8 + maximum / range * 40
-  const gap = 4
-  const barWidth = Math.min(24, (180 - gap * Math.max(chartValues.length - 1, 0)) / Math.max(chartValues.length, 1))
-  const chartWidth = barWidth * chartValues.length + gap * Math.max(chartValues.length - 1, 0)
-  const chartStart = (180 - chartWidth) / 2
-  const popupPosition = rowIndex < 3 ? 'top-0' : rowIndex >= rowCount - 3 ? 'bottom-0' : 'top-1/2 -translate-y-1/2'
-
-  return <th onClick={onToggleChanges} onMouseLeave={() => setTrendOpen(false)} className="group sticky left-0 z-20 cursor-pointer border-r border-[#d9e5f1] bg-white px-7 py-4 text-sm font-semibold whitespace-nowrap dark:bg-[#132235] dark:text-[#eaf1fb]" aria-expanded={expanded} title="Show year-over-year changes">
-    <span className="flex w-full items-center justify-between gap-4 text-left">
-      <span>{label}</span>
-      <button type="button" onClick={(event) => { event.stopPropagation(); setTrendOpen((open) => !open) }} className="-m-2 grid size-8 shrink-0 place-items-center rounded-lg outline-none transition hover:bg-[#e8f1fb] focus-visible:ring-2 focus-visible:ring-[#327ab7] dark:hover:bg-[#203028]" aria-label={`${trendOpen ? 'Hide' : 'Show'} trend and explanation for ${label}`} aria-expanded={trendOpen}>
-      <svg className={`size-3.5 shrink-0 text-[#506a84] transition ${trendOpen ? 'opacity-100' : 'opacity-45 group-hover:opacity-100'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m3 17 6-6 4 4 8-9" /><path d="M15 6h6v6" /></svg>
-      </button>
-    </span>
-    <span className={`absolute left-[calc(100%-12px)] z-40 w-68 rounded-2xl border border-[#c3d5e8] bg-white p-4 text-left text-[#0d243d] whitespace-normal shadow-[0_16px_45px_rgba(20,38,29,.16)] dark:border-[#304258] dark:bg-[#16283b] dark:text-[#eaf1fb] dark:shadow-[0_18px_50px_rgba(0,0,0,.5)] ${trendOpen ? 'block' : 'hidden'} ${popupPosition}`}>
-      <span className="flex items-start justify-between gap-3"><span><span className="block text-[11px] font-bold uppercase tracking-[.1em] text-[#7c8780]">{label} trend</span>{latest && <span className="mt-1 block text-xs font-normal text-[#6d8096]">{available.length} reported periods</span>}</span>{latest && <span className={`rounded-md px-2 py-1 text-xs font-bold ${positive ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-600'}`}>{percentChange === null ? '—' : `${positive ? '+' : ''}${percentChange.toFixed(2)}%`}</span>}</span>
-      <span className="mt-3 block border-t border-[#e8f0fa] pt-3 text-xs font-normal leading-5 text-[#65736b] dark:border-[#304258] dark:text-[#aab7b0]">{description}</span>
-      {chartValues.length > 1 ? <span className="relative mt-3 block pt-8">{hoveredBar !== null && <span className="absolute top-0 z-10 -translate-x-1/2 rounded-md bg-[#0d243d] px-2 py-1 text-[10px] font-semibold text-white whitespace-nowrap shadow-lg dark:bg-[#eaf1fb] dark:text-[#0d243d]" style={{ left: `${(chartStart + hoveredBar * (barWidth + gap) + barWidth / 2) / 180 * 100}%` }}>{chartItems[hoveredBar].period.label} · {formatFact(chartItems[hoveredBar].fact.value, chartItems[hoveredBar].fact.unit)}</span>}<svg viewBox="0 0 180 56" className={`h-14 w-full ${positive ? 'text-emerald-500' : 'text-rose-500'}`} preserveAspectRatio="none"><line className="stroke-[#dfe5e0] dark:stroke-[#405148]" x1="0" y1={baseline} x2="180" y2={baseline} strokeWidth="1" />{chartValues.map((value, index) => { const height = Math.max(Math.abs(value) / range * 40, 1); const y = value >= 0 ? baseline - height : baseline; return <rect key={`${index}-${value}`} className="cursor-help" x={chartStart + index * (barWidth + gap)} y={y} width={barWidth} height={height} rx="2" fill="currentColor" opacity={index === chartValues.length - 1 ? 1 : .48 + index / chartValues.length * .35} onMouseEnter={() => setHoveredBar(index)} onMouseLeave={() => setHoveredBar(null)}><title>{chartItems[index].period.label}: {formatFact(chartItems[index].fact.value, chartItems[index].fact.unit)}</title></rect> })}</svg></span> : <span className="mt-4 block rounded-xl bg-[#f1f6fc] px-3 py-4 text-center text-xs font-normal text-[#5b748d]">More periods are needed to calculate a trend.</span>}
-      {latest && <span className="mt-3 grid grid-cols-2 gap-2 border-t border-[#e8f0fa] pt-3"><span><span className="block text-[10px] font-medium text-[#6d8096]">Latest · {latest.period.label}</span><span className="mt-1 block text-sm font-bold">{formatFact(latest.fact.value, latest.fact.unit)}</span></span><span><span className="block text-[10px] font-medium text-[#6d8096]">Period change</span><span className={`mt-1 block text-sm font-bold ${change === null ? 'text-[#5b748d]' : positive ? 'text-emerald-700' : 'text-rose-600'}`}>{change === null ? '—' : `${positive ? '+' : ''}${formatFact(change, latest.fact.unit)}`}</span></span></span>}
-    </span>
-  </th>
-}
-
-function FinancialEmpty({ message }: { message: string }) {
-  return <div className="m-6 rounded-2xl border border-dashed border-[#b9cce0] bg-[#f9fbff] px-5 py-9 text-center"><p className="font-semibold">Financial data is not available yet</p><p className="mx-auto mt-1 max-w-xl text-sm text-[#556c84]">{message || 'Synchronize this company’s SEC filings through the API to populate ratios and financial statements.'}</p></div>
-} */
 
 export default InstrumentPage

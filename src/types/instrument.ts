@@ -14,19 +14,6 @@ export type Instrument = {
   change?: number
 }
 
-export type FinancialFact = {
-  metric: string
-  statementType: 'INCOME_STATEMENT' | 'BALANCE_SHEET' | 'CASH_FLOW'
-  periodType: 'ANNUAL' | 'QUARTERLY'
-  fiscalYear: number
-  fiscalPeriod: string
-  periodStart: string | null
-  periodEnd: string
-  value: number
-  unit: string
-  filedAt: string
-}
-
 export type InstrumentQuote = {
   symbol: string
   price: number
@@ -38,6 +25,17 @@ export type InstrumentQuote = {
   marketDate: string
   provider: string
   fetchedAt: string
+}
+
+export type DailyQuote = {
+  symbol: string
+  date: string
+  open: number
+  high: number
+  low: number
+  close: number
+  volume: number | null
+  currency: string
 }
 
 export type DividendEvent = {
